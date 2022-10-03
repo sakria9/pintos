@@ -152,7 +152,7 @@ smod64 (int64_t n, int64_t d)
 {
   return n - d * sdiv64 (n, d);
 }
-
+
 /* These are the routines that GCC calls. */
 
 long long __divdi3 (long long n, long long d);

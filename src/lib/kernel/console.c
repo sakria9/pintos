@@ -168,7 +168,7 @@ putchar (int c)
   
   return c;
 }
-
+
 /* Helper function for vprintf(). */
 static void
 vprintf_helper (char c, void *char_cnt_) 

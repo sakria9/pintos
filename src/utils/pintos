@@ -41,7 +41,7 @@ run_vm ();
 finish_scratch_disk ();
 
 exit 0;
-
+
 # Parses the command line.
 sub parse_command_line {
     usage (0) if @ARGV == 0 || (@ARGV == 1 && $ARGV[0] eq '--help');
@@ -251,7 +251,7 @@ sub set_disk {
 	$parts{$role}{SECTORS} = $pt{$role}{SECTORS};
     }
 }
-
+
 # Locates the files used to back each of the virtual disks,
 # and creates temporary disks.
 sub find_disks {
@@ -326,7 +326,7 @@ sub find_disks {
     unshift (@disks, $make_disk);
     die "can't use more than " . scalar (@disks) . "disks\n" if @disks > 4;
 }
-
+
 # Prepare the scratch disk for gets and puts.
 sub prepare_scratch_disk {
     return if !@gets && !@puts;
@@ -526,7 +526,7 @@ sub get_scratch_file {
 
     return 0;
 }
-
+
 # Running simulators.
 
 # Runs the selected simulator.
@@ -747,7 +747,7 @@ EOF
     print join (' ', @cmd), "\n";
     xsystem (@cmd);
 }
-
+
 # Disk utilities.
 
 sub extend_file {
@@ -777,7 +777,7 @@ sub disk_geometry {
 	    H => 16,
 	    S => 63);
 }
-
+
 # Subprocess utilities.
 
 # run_command(@args)

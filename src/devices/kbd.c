@@ -39,7 +39,7 @@ kbd_print_stats (void)
 {
   printf ("Keyboard: %lld keys pressed\n", key_cnt);
 }
-
+
 /* Maps a set of contiguous scancodes into characters. */
 struct keymap
   {

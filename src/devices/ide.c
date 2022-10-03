@@ -154,7 +154,7 @@ ide_init (void)
           identify_ata_device (&c->devices[dev_no]);
     }
 }
-
+
 /* Disk detection and identification. */
 
 static char *descramble_ata_string (char *, int size);
@@ -336,7 +336,7 @@ descramble_ata_string (char *string, int size)
 
   return string;
 }
-
+
 /* Reads sector SEC_NO from disk D into BUFFER, which must have
    room for BLOCK_SECTOR_SIZE bytes.
    Internally synchronizes accesses to disks, so external
@@ -381,7 +381,7 @@ static struct block_operations ide_operations =
     ide_read,
     ide_write
   };
-
+
 /* Selects device D, waiting for it to become ready, and then
    writes SEC_NO to the disk's sector selection registers.  (We
    use LBA mode.) */
@@ -429,7 +429,7 @@ output_sector (struct channel *c, const void *sector)
 {
   outsw (reg_data (c), sector, BLOCK_SECTOR_SIZE / 2);
 }
-
+
 /* Low-level ATA primitives. */
 
 /* Wait up to 10 seconds for the controller to become idle, that
@@ -501,7 +501,7 @@ select_device_wait (const struct ata_disk *d)
   select_device (d);
   wait_until_idle (d);
 }
-
+
 /* ATA interrupt handler. */
 static void
 interrupt_handler (struct intr_frame *f) 

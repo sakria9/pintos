@@ -73,7 +73,7 @@ intq_putc (struct intq *q, uint8_t byte)
   q->head = next (q->head);
   signal (q, &q->not_empty);
 }
-
+
 /* Returns the position after POS within an intq. */
 static int
 next (int pos) 
