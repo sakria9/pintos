@@ -87,6 +87,7 @@ kernel.bin: kernel.o
 
 threads/loader.o: threads/loader.S
 	$(CC) -c $< -o $@ $(ASFLAGS) $(CPPFLAGS) $(DEFINES)
+	$(OBJCOPY) -R .note.gnu.property $@
 
 loader.bin: threads/loader.o
 	$(LD) -N -e 0 -Ttext 0x7c00 --oformat binary -o $@ $<
