@@ -274,6 +274,14 @@ list_pop_back (struct list *list)
   return back;
 }
 
+struct list_elem *
+list_pop_max (struct list *list, list_less_func *less, void *aux)
+{
+  struct list_elem *e = list_max(list, less, aux);
+  list_remove(e);
+  return e;
+}
+
 /* Returns the front element in LIST.
    Undefined behavior if LIST is empty. */
 struct list_elem *

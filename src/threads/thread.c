@@ -212,6 +212,7 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
+  thread_yield();
 
   return tid;
 }
@@ -348,6 +349,7 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  thread_yield();
 }
 
 /* Returns the current thread's priority. */
@@ -505,7 +507,7 @@ next_thread_to_run (void)
   if (list_empty (&ready_list))
     return idle_thread;
   else
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+    return thread_list_pop_max_priority(&ready_list);
 }
 
 /* Completes a thread switch by activating the new thread's page
@@ -594,3 +596,16 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+struct thread *thread_list_pop_max_priority(struct list* thread_list) {
+  return list_entry(list_pop_max(thread_list, &thread_less_by_priority, NULL), struct thread, elem);
+}
+
+bool thread_less_by_priority(const struct list_elem *a,
+                             const struct list_elem *b,
+                             __attribute__((unused)) void *_) {
+  return *(int *)((uint8_t *)&(a)->next - offsetof(struct thread, elem.next) +
+                  offsetof(struct thread, priority)) <
+         *(int *)((uint8_t *)&(b)->next - offsetof(struct thread, elem.next) +
+                  offsetof(struct thread, priority));
+}
