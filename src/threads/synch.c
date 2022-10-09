@@ -200,6 +200,20 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  if (lock->holder != NULL) {
+    enum intr_level old_level = intr_disable();
+    if (lock->holder != NULL) {
+      list_push_back(&lock->holder->donator_list, &thread_current()->donatee_elem);
+      thread_current()->donatee = lock->holder;
+      struct thread* donatee = lock->holder;
+      while (donatee != NULL && donatee->priority < thread_current()->priority) {
+        donatee->priority = thread_current()->priority;
+        donatee = donatee->donatee;
+      }
+    }
+    intr_set_level(old_level);
+  }
+
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
 }
@@ -235,8 +249,19 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
+  struct list* donator_list = &lock->semaphore.waiters;
+  for (struct list_elem *e = list_begin(donator_list); e != list_end(donator_list); e = list_next(e)) {
+    struct thread *t = list_entry(e, struct thread, elem);
+    if (t->donatee) {
+      ASSERT(t->donatee == thread_current());
+      t->donatee = NULL;
+      list_remove(&t->donatee_elem);
+    }
+  }
   lock->holder = NULL;
   sema_up (&lock->semaphore);
+  thread_compute_priority();
+  thread_yield();
 }
 
 /* Returns true if the current thread holds LOCK, false

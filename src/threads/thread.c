@@ -4,6 +4,7 @@
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
+#include "list.h"
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -303,6 +304,10 @@ thread_exit (void)
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
+  if (thread_current()->donatee)
+    list_remove(&thread_current()->donatee_elem);
+  for (struct list_elem *e = list_begin(&thread_current()->donator_list); e != list_end(&thread_current()->donator_list); e = list_next(e))
+    list_entry(e, struct thread, donatee_elem)->donatee = NULL;
   list_remove (&thread_current()->allelem);
   thread_current ()->status = THREAD_DYING;
   schedule ();
@@ -348,7 +353,8 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  thread_current ()->raw_priority = new_priority;
+  thread_compute_priority();
   thread_yield();
 }
 
@@ -357,6 +363,21 @@ int
 thread_get_priority (void) 
 {
   return thread_current ()->priority;
+}
+
+void thread_compute_priority() {
+  thread_current()->priority = thread_current()->raw_priority;
+  struct list * const donator_list = &thread_current()->donator_list;
+  for (struct list_elem *e = list_begin(donator_list); e != list_end(donator_list); e = list_next(e)) {
+    struct thread *t = list_entry(e, struct thread, donatee_elem);
+    ASSERT(is_thread(t));
+    if (!is_thread(t)) {
+      printf("iter %p\n", t);
+      ASSERT (false);
+    }
+    if (t->priority > thread_current()->priority)
+      thread_current()->priority = t->priority;
+  }
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -475,6 +496,9 @@ init_thread (struct thread *t, const char *name, int priority)
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
+  t->raw_priority = priority;
+  list_init(&t->donator_list);
+  t->donatee = NULL;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
 
