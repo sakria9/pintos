@@ -60,6 +60,8 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
 
+fp32 load_avg; // used by 4.4BSD scheduler
+
 static void kernel_thread (thread_func *, void *aux);
 
 static void idle (void *aux UNUSED);
@@ -191,6 +193,11 @@ thread_create (const char *name, int priority,
   t = palloc_get_page (PAL_ZERO);
   if (t == NULL)
     return TID_ERROR;
+
+  if (thread_mlfqs) {
+    t->nice = 0;
+    t->recent_cpu = fp32_create(0);
+  }
 
   /* Initialize thread. */
   init_thread (t, name, priority);
@@ -353,9 +360,11 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->raw_priority = new_priority;
-  thread_compute_priority();
-  thread_yield();
+  if (!thread_mlfqs) { // ignore this function when we are using 4.4BSD scheduler
+    thread_current ()->raw_priority = new_priority;
+    thread_compute_priority();
+    thread_yield();
+  }
 }
 
 /* Returns the current thread's priority. */
@@ -382,33 +391,30 @@ void thread_compute_priority() {
 
 /* Sets the current thread's nice value to NICE. */
 void
-thread_set_nice (int nice UNUSED) 
+thread_set_nice (int nice) 
 {
-  /* Not yet implemented. */
+  thread_current()->nice = nice;
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return thread_current()->nice;
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return fp32_round(load_avg*100);
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return fp32_round(thread_current()->recent_cpu*100);
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
