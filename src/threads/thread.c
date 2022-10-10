@@ -375,17 +375,13 @@ thread_get_priority (void)
 }
 
 void thread_compute_priority() {
-  thread_current()->priority = thread_current()->raw_priority;
-  struct list * const donator_list = &thread_current()->donator_list;
-  for (struct list_elem *e = list_begin(donator_list); e != list_end(donator_list); e = list_next(e)) {
-    struct thread *t = list_entry(e, struct thread, donatee_elem);
-    ASSERT(is_thread(t));
-    if (!is_thread(t)) {
-      printf("iter %p\n", t);
-      ASSERT (false);
-    }
-    if (t->priority > thread_current()->priority)
-      thread_current()->priority = t->priority;
+  struct thread *t = thread_current();
+  t->priority = t->raw_priority;
+  // iterate through the list of threads that are donating to this thread
+  for (struct list_elem *e = list_begin(&t->donator_list); e != list_end(&t->donator_list); e = list_next(e)) {
+    struct thread *donator = list_entry(e, struct thread, donatee_elem);
+    if (donator->priority > t->priority)
+      t->priority = donator->priority;
   }
 }
 
