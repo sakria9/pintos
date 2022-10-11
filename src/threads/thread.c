@@ -4,6 +4,7 @@
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
+#include "fixedpoint.h"
 #include "list.h"
 #include "threads/flags.h"
 #include "threads/interrupt.h"
@@ -12,6 +13,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include <devices/timer.h>
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -24,6 +26,8 @@
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
+
+static int ready_threads; // used by 4.4BSD scheduler
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
@@ -96,6 +100,11 @@ thread_init (void)
   list_init (&ready_list);
   list_init (&all_list);
 
+  if (thread_mlfqs) {
+    load_avg = fp32_create(0);
+    ready_threads = 0;
+  }
+
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
@@ -125,7 +134,17 @@ thread_start (void)
 void
 thread_tick (void) 
 {
+  int tick=timer_ticks();
   struct thread *t = thread_current ();
+  if (thread_mlfqs) {
+    if (tick % TIMER_FREQ == 0) {
+      thread_update_load_avg();
+      thread_update_recent_cpu();
+    }
+    if (tick % 4 ==0) {
+      thread_foreach(thread_update_priority, NULL);
+    }
+  }
 
   /* Update statistics. */
   if (t == idle_thread)
@@ -134,8 +153,14 @@ thread_tick (void)
   else if (t->pagedir != NULL)
     user_ticks++;
 #endif
-  else
+  else {
     kernel_ticks++;
+    if (thread_mlfqs) {
+      ASSERT(t->status==THREAD_RUNNING);
+      t->recent_cpu++;
+      intr_yield_on_return();
+    }
+  }
 
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
@@ -197,6 +222,7 @@ thread_create (const char *name, int priority,
   if (thread_mlfqs) {
     t->nice = 0;
     t->recent_cpu = fp32_create(0);
+    thread_update_priority(t, NULL);
   }
 
   /* Initialize thread. */
@@ -389,7 +415,10 @@ void thread_compute_priority() {
 void
 thread_set_nice (int nice) 
 {
-  thread_current()->nice = nice;
+  struct thread *t = thread_current();
+  t->nice = nice;
+  thread_update_priority(t, NULL);
+  thread_yield();
 }
 
 /* Returns the current thread's nice value. */
@@ -597,6 +626,9 @@ schedule (void)
   struct thread *prev = NULL;
 
   ASSERT (intr_get_level () == INTR_OFF);
+  if (cur->status ==THREAD_RUNNING) {
+    ready_threads++;
+  }
   ASSERT (cur->status != THREAD_RUNNING);
   ASSERT (is_thread (next));
 
@@ -634,4 +666,56 @@ bool thread_less_by_priority(const struct list_elem *a,
                   offsetof(struct thread, priority)) <
          *(int *)((uint8_t *)&(b)->next - offsetof(struct thread, elem.next) +
                   offsetof(struct thread, priority));
+}
+
+
+void thread_update_load_avg(void)
+{
+  load_avg = fp32_add(fp32_mul(fp32_div_int(fp32_create(59),60),load_avg),fp32_mul_int(fp32_div_int(fp32_create(1), 60), thread_get_ready_threads_count()+1));
+  //printf("Updated load_avg: %d", load_avg);
+}
+
+static void thread_update_recent_cpu_foreach_func(struct thread *t, void *aux UNUSED )
+{
+  fp32 tmp=fp32_mul_int(load_avg, 2);
+  t->recent_cpu = fp32_add_int(fp32_mul(fp32_div(tmp, fp32_add_int(tmp, 1)),t->recent_cpu),t->nice);
+}
+void thread_update_recent_cpu(void)
+{
+  thread_foreach(thread_update_recent_cpu_foreach_func, NULL);
+}
+int thread_get_ready_threads_count(void) 
+{
+  struct list_elem *e;
+  int cnt=0;
+
+  ASSERT (intr_get_level () == INTR_OFF);
+
+  for (e = list_begin (&ready_list); e != list_end (&ready_list);
+       e = list_next (e))
+    {
+      cnt++;
+    }
+  return cnt;
+}
+void thread_update_priority(struct thread *t, void *aux UNUSED)
+{
+  if(t==idle_thread)
+    return;
+  t->priority = PRI_MAX - fp32_to_int(fp32_div_int(t->recent_cpu, 4)) - t->nice*2;
+  if(t->priority>PRI_MAX)
+    t->priority=PRI_MAX;
+  if(t->priority<PRI_MIN)
+    t->priority=PRI_MIN;
+}
+
+// called by time_sleep()
+void thread_sleep(int64_t awake_tick)
+{
+  struct thread *t = thread_current();
+
+  enum intr_level old_level;
+  old_level = intr_disable ();
+  thread_block ();
+  intr_set_level (old_level);
 }

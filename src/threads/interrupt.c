@@ -88,6 +88,9 @@ enum intr_level
 intr_enable (void) 
 {
   enum intr_level old_level = intr_get_level ();
+  if (intr_context()) {
+    old_level = intr_get_level();
+  }
   ASSERT (!intr_context ());
 
   /* Enable interrupts by setting the interrupt flag.
