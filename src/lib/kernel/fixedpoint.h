@@ -1,4 +1,8 @@
 #pragma once
+/* Fix-Point Real Arithmetic Implimentation
+ * Used by threads
+ * We use a 32 bits int to represent a fix-point number. Using 17 bits for the integer part and 14 bits for the fractional part, i.e. 17.14 format.
+ */
 #include <stdint.h>
 #define FP32_F (1<<14)
 typedef int fp32;
