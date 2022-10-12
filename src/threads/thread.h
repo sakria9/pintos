@@ -90,10 +90,16 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority after donations. */
     int raw_priority;                   /* Priority before donations. */
+    /* For sleeping thread. 
+       Tick to wake up. 
+       If  awake_tick < 0, the thread is not sleeping*/
+    int awake_tick; 
     struct list donator_list;
     struct thread* donatee;
     struct list_elem donatee_elem;
     struct list_elem allelem; /* List element for all threads list. */
+
+    struct list_elem sleep_elem; /* List element for sleep list. */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -108,6 +114,7 @@ struct thread
 
    int nice; // used by 4.4BSD scheduler
    fp32 recent_cpu; // used by 4.4BSD scheduler
+
   };
 
 /* If false (default), use round-robin scheduler.

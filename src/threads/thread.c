@@ -33,6 +33,9 @@ static int ready_threads; // used by 4.4BSD scheduler
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
+/* List for all sleeping threads. */
+static struct list sleep_list;
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -99,6 +102,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init (&sleep_list);
 
   if (thread_mlfqs) {
     load_avg = fp32_create(0);
@@ -146,6 +150,19 @@ thread_tick (void)
     }
   }
 
+  while(true) {
+    struct list_elem *e=list_begin(&sleep_list);
+    if (e==list_end(&sleep_list)) {
+      break;
+    }
+    struct thread *x = list_entry (e, struct thread, sleep_elem);
+    if (x->awake_tick>tick) {
+      break;
+    }
+    thread_unblock (x);
+    list_pop_front(&sleep_list);
+  }
+
   /* Update statistics. */
   if (t == idle_thread)
     idle_ticks++;
@@ -157,7 +174,7 @@ thread_tick (void)
     kernel_ticks++;
     if (thread_mlfqs) {
       ASSERT(t->status==THREAD_RUNNING);
-      t->recent_cpu++;
+      t->recent_cpu = fp32_add_int(t->recent_cpu++,1);
       intr_yield_on_return();
     }
   }
@@ -219,6 +236,7 @@ thread_create (const char *name, int priority,
   if (t == NULL)
     return TID_ERROR;
 
+  t->awake_tick = -1;
   if (thread_mlfqs) {
     t->nice = 0;
     t->recent_cpu = fp32_create(0);
@@ -671,7 +689,11 @@ bool thread_less_by_priority(const struct list_elem *a,
 
 void thread_update_load_avg(void)
 {
-  load_avg = fp32_add(fp32_mul(fp32_div_int(fp32_create(59),60),load_avg),fp32_mul_int(fp32_div_int(fp32_create(1), 60), thread_get_ready_threads_count()+1));
+  int ready_threads = list_size(&ready_list);
+  if (thread_current() != idle_thread) {
+    ready_threads++;
+  }
+  load_avg = fp32_add(fp32_mul(fp32_div_int(fp32_create(59),60),load_avg),fp32_mul_int(fp32_div_int(fp32_create(1), 60), ready_threads));
   //printf("Updated load_avg: %d", load_avg);
 }
 
@@ -684,6 +706,8 @@ void thread_update_recent_cpu(void)
 {
   thread_foreach(thread_update_recent_cpu_foreach_func, NULL);
 }
+
+// maybe unused
 int thread_get_ready_threads_count(void) 
 {
   struct list_elem *e;
@@ -713,6 +737,23 @@ void thread_update_priority(struct thread *t, void *aux UNUSED)
 void thread_sleep(int64_t awake_tick)
 {
   struct thread *t = thread_current();
+  t->awake_tick = awake_tick;
+
+  struct list_elem *e;
+  struct thread *x;
+
+  for (e = list_rbegin (&sleep_list); e != list_rend (&sleep_list);
+        e = list_prev (e))
+    {
+      x = list_entry (e, struct thread, sleep_elem);
+      if (x->awake_tick < t->awake_tick)
+        break;
+    }
+  if (e==list_rend(&sleep_list))
+    list_push_front(&sleep_list, &t->sleep_elem);
+  else
+    list_insert(list_next(e), &t->sleep_elem);
+
 
   enum intr_level old_level;
   old_level = intr_disable ();
