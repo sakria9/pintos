@@ -92,7 +92,7 @@ struct thread
     int raw_priority;                   /* Priority before donations. */
     /* For sleeping thread. 
        Tick to wake up. 
-       If  awake_tick < 0, the thread is not sleeping*/
+       If awake_tick < 0, the thread is not sleeping */
     int awake_tick; 
     struct list donator_list;
     struct thread* donatee;
@@ -112,9 +112,8 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 
-   int nice; // used by 4.4BSD scheduler
-   fp32 recent_cpu; // used by 4.4BSD scheduler
-
+    int nice;                           /* used by 4.4BSD scheduler */
+    fp32 recent_cpu;                    /* used by 4.4BSD scheduler */
   };
 
 /* If false (default), use round-robin scheduler.
@@ -148,7 +147,6 @@ void thread_foreach (thread_action_func *, void *);
 
 int thread_get_priority (void);
 void thread_set_priority (int);
-void thread_compute_priority (void);
 
 int thread_get_nice (void);
 void thread_set_nice (int);
