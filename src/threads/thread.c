@@ -740,9 +740,9 @@ void thread_sleep(int64_t awake_tick)
   struct thread *t = thread_current();
   t->awake_tick = awake_tick;
 
+  enum intr_level old_level = intr_disable ();
   struct list_elem *e;
   struct thread *x;
-
   for (e = list_rbegin (&sleep_list); e != list_rend (&sleep_list);
         e = list_prev (e))
     {
@@ -750,14 +750,7 @@ void thread_sleep(int64_t awake_tick)
       if (x->awake_tick < t->awake_tick)
         break;
     }
-  if (e==list_rend(&sleep_list))
-    list_push_front(&sleep_list, &t->sleep_elem);
-  else
-    list_insert(list_next(e), &t->sleep_elem);
-
-
-  enum intr_level old_level;
-  old_level = intr_disable ();
+  list_insert(list_next(e), &t->sleep_elem);
   thread_block ();
   intr_set_level (old_level);
 }
