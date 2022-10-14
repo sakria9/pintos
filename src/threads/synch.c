@@ -305,7 +305,7 @@ struct semaphore_elem
     struct thread* thread;              /* Thread that is waiting this semaphore */
   };
 
-bool semaphore_elem_less(const struct list_elem *a, const struct list_elem *b,
+static bool semaphore_elem_less(const struct list_elem *a, const struct list_elem *b,
                          UNUSED void *_) {
   struct semaphore_elem *e1 = list_entry(a, struct semaphore_elem, elem);
   struct semaphore_elem *e2 = list_entry(b, struct semaphore_elem, elem);
