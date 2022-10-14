@@ -93,13 +93,13 @@ struct thread
     /* For sleeping thread. 
        Tick to wake up. 
        If awake_tick < 0, the thread is not sleeping */
-    int awake_tick; 
-    struct list donator_list;
-    struct thread* donatee;
-    struct list_elem donatee_elem;
-    struct list_elem allelem; /* List element for all threads list. */
+    int awake_tick;
+    struct list donator_list;           /* Threads that donating this thread */
+    struct thread* donatee;             /* Thread that this thread is donating */
+    struct list_elem donatee_elem;      /* List element for donator_list */
+    struct list_elem allelem;           /* List element for all threads list. */
 
-    struct list_elem sleep_elem; /* List element for sleep list. */
+    struct list_elem sleep_elem;        /* List element for sleep list. */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */

@@ -302,7 +302,7 @@ struct semaphore_elem
   {
     struct list_elem elem;              /* List element. */
     struct semaphore semaphore;         /* This semaphore. */
-    struct thread* thread;
+    struct thread* thread;              /* Thread that is waiting this semaphore */
   };
 
 bool semaphore_elem_less(const struct list_elem *a, const struct list_elem *b,
