@@ -266,6 +266,15 @@ lock_release (struct lock *lock)
            e != list_end (donator_list); e = list_next (e))
         {
           struct thread *t = list_entry (e, struct thread, elem);
+          // Consider the case
+          // A with priority 32 holds lock L
+          // B with priority 33 waits for L
+          // C with priority 34 waits for L
+          // B, C donate to A, everything is fine now
+          // A releases L, C holds L
+          // Ooops, B is not donating to anyone now
+          // Fortunately, this does not affect correctness
+          // we just need to make sure that B is donating to C
           if (t->donatee)
             {
               ASSERT (t->donatee == thread_current ());
