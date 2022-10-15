@@ -203,8 +203,7 @@ struct thread
 > scheduling decision and the priority and recent_cpu values for each
 > thread after each given number of timer ticks:
 
-timer     recent_cpu    priority   
-|ticks|   A|   B|   C|   A|   B|   C|thread to run|
+|timer ticks| recent_cpu  A|   B|   C| priority   A|   B|   C|thread to run|
 |-----|  --|  --|  --|  --|  --|  --|---------|
 | 0   |  0 |  0 |  0 | 63 | 61 | 59 |   A     |
 | 4   | 4  |  0 |  0 | 62 | 61 | 59 |   A     | 
@@ -229,6 +228,10 @@ It may not match the behavior of my scheduler. My scheduler always choose the fi
 
 > C4: How is the way you divided the cost of scheduling between code
 > inside and outside interrupt context likely to affect performance?
+
+In the timer interrupt handler ( which is inside interrupt context), it will iterate through all threads to update priority and get the maxium priority thread every 4 ticks. So it may affect performance if the number of threads is very large.
+
+The scheduler does few things outside interrupt context.
 
 
 
