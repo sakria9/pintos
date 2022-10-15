@@ -31,26 +31,64 @@ Hu Aibo <huab@shanghaitech.edu.cn>
 > `struct' member, global or static variable, `typedef', or
 > enumeration.  Identify the purpose of each in 25 words or less.
 
+```cpp
+/* List for all sleeping threads. 
+   Sort by awake_time in ascending order.
+*/
+static struct list sleep_list;
+struct thread
+  {
+    /* For sleeping thread. 
+       Tick to wake up. 
+       If awake_tick < 0, the thread is not sleeping */
+    int awake_tick;
+    struct list_elem sleep_elem;        /* List element for sleep list. */
+  };
+
+```
+
 #### ALGORITHMS 
 
 > A2: Briefly describe what happens in a call to timer_sleep(),
 > including the effects of the timer interrupt handler.
 
+timer_sleep calls thread_sleep
+
+thread_sleep disables interrupt immediately, and enables interrupt after it is done.
+
+Then it inserts the thread into sleep_list, marks the thread as sleeping, and block the thread.
+
+When the timer interrupt handler is called, it will check the sleep_list, and wake up all the threads that should be woken up.
+
 > A3: What steps are taken to minimize the amount of time spent in
 > the timer interrupt handler?
+
+thread_sleep maintains a sorted sleep_list, so that in the timer interrupt handler, it can wake up threads in O(k) time, where k is the number of threads that should be woken up at that tick.
 
 #### SYNCHRONIZATION 
 
 > A4: How are race conditions avoided when multiple threads call
 > timer_sleep() simultaneously?
 
+When step into thread_sleep, it disables interrupt immediately, so that the timer interrupt handler will not be called. Then thread schedule will not happen. So no two threads will change sleep_list at the same time.
+
 > A5: How are race conditions avoided when a timer interrupt occurs
 > during a call to timer_sleep()?
+
+When step into thread_sleep, it disables interrupt immediately, so that the timer interrupt will not be called.
+
 
 #### RATIONALE 
 
 > A6: Why did you choose this design?  In what ways is it superior to
 > another design you considered?
+
+We choose to maintain a sorted sleep_list, it is simple and efficient. It takes O(1) when pop a thread from the list in time interrupt handler, so that it will not take too much time in the timer interrupt handler. In timer_sleep, it will take at worst O(n) time, but in practice, threads that call sleep later are usually woken up later as well, so the O(n) upper bound is not easily reached.
+
+We have thought about maintaining an unordered list. But it will take O(n) time in timer interrupt handler.
+
+We also thought about maintaining a heap, but the heap design is relatively complex, and the test data size of pintos is not very large, so the O(logn) time efficiency advantage is not obvious. If there will be some large testcase in later project, we may consider to design a heap for alarm clock.
+
 
              PRIORITY SCHEDULING
              ===================
