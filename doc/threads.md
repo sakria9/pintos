@@ -254,7 +254,7 @@ The disadvantage may be that the scheduler is not efficient enough. For example,
 
 I use ``typdef int fp32;`` to represent a 17.14 fixed-point real number. And use functions like ``fp32 fp32_create(int)``, ``fp32 fp32_add (fp32 x, fp32 y)`` to operate the fixed-point number.
 
-Using a new type to represent the fixed-point number is more clear for coder. 
+Using a new type name to represent the fixed-point number is more clear for reader. 
 
 Using functions can abstract the implementation of fixed-point number. So that coder can use the functions to operate the fixed-point number without knowing the implementation details.
 
