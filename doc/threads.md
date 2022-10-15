@@ -186,6 +186,16 @@ So we avoid the potential race.
 > `struct' member, global or static variable, `typedef', or
 > enumeration.  Identify the purpose of each in 25 words or less.
 
+```cpp
+typedef int fp32; // 17.14 Fix-Point Real Number
+fp32 load_avg; // load_avg defined by 4.4BSD scheduler
+struct thread
+  {
+    int nice;                           /* The niceness defined by 4.4BSD scheduler */
+    fp32 recent_cpu;                    /* The recent cpu defined by 4.4BSD scheduler */
+  };
+```
+
 #### ALGORITHMS 
 
 > C2: Suppose threads A, B, and C have nice values 0, 1, and 2.  Each
@@ -193,26 +203,34 @@ So we avoid the potential race.
 > scheduling decision and the priority and recent_cpu values for each
 > thread after each given number of timer ticks:
 
-timer  recent_cpu    priority   thread
-ticks   A   B   C   A   B   C   to run
------  --  --  --  --  --  --   ------
- 0
- 4
- 8
-12
-16
-20
-24
-28
-32
-36
+timer     recent_cpu    priority   
+|ticks|   A|   B|   C|   A|   B|   C|thread to run|
+|-----|  --|  --|  --|  --|  --|  --|---------|
+| 0   |  0 |  0 |  0 | 63 | 61 | 59 |   A     |
+| 4   | 4  |  0 |  0 | 62 | 61 | 59 |   A     | 
+| 8   | 8  |  0 |  0 | 61 | 61 | 59 |   A     |
+|12   | 12 |  0 |  0 | 60 | 61 | 59 |   B     |
+|16   | 12 |  4 |  0 | 60 | 60 | 59 |   B     |
+|20   | 12 |  8 |  0 | 60 | 59 | 59 |   A     |
+|24   | 16 |  8 |  0 | 59 | 59 | 59 |   A     |
+|28   | 20 |  8 |  0 | 58 | 59 | 59 |   B     |
+|32   | 20 | 12 |  0 | 58 | 58 | 59 |   C     |
+|36   | 20 | 12 |  4 | 58 | 58 | 58 |   C     |
 
 > C3: Did any ambiguities in the scheduler specification make values
 > in the table uncertain?  If so, what rule did you use to resolve
 > them?  Does this match the behavior of your scheduler?
 
+Yes, when there are two or more threads having the maximum priority, choose any one of them is ok. 
+
+I choose the current running thread first if it has the maximum priority. Then the any one of the threads with the maximum priority.  
+
+It may not match the behavior of my scheduler. My scheduler always choose the first thread in the ready list which has the maximum priority.
+
 > C4: How is the way you divided the cost of scheduling between code
 > inside and outside interrupt context likely to affect performance?
+
+
 
 #### RATIONALE 
 
@@ -221,12 +239,24 @@ ticks   A   B   C   A   B   C   to run
 > time to work on this part of the project, how might you choose to
 > refine or improve your design?
 
+My code is designed exactly as described in the documentation. 
+
+I think the advantage of my design is that it is clear enough and easy to understand.
+
+The disadvantage may be that the scheduler is not efficient enough. For example, on every 4 ticks, It updates the priority of all threads, and then scan the entire ready list for the thread with the highest priority.  If I have more time, it may be better to only update the threads whose nice and recent_cpu are changed, and use a heap to maintain the maximum priority thread. 
+
 > C6: The assignment explains arithmetic for fixed-point math in
 > detail, but it leaves it open to you to implement it.  Why did you
 > decide to implement it the way you did?  If you created an
 > abstraction layer for fixed-point math, that is, an abstract data
 > type and/or a set of functions or macros to manipulate fixed-point
 > numbers, why did you do so?  If not, why not?
+
+I use ``typdef int fp32;`` to represent a 17.14 fixed-point real number. And use functions like ``fp32 fp32_create(int)``, ``fp32 fp32_add (fp32 x, fp32 y)`` to operate the fixed-point number.
+
+Using a new type to represent the fixed-point number is more clear for coder. 
+
+Using functions can abstract the implementation of fixed-point number. So that coder can use the functions to operate the fixed-point number without knowing the implementation details.
 
                SURVEY QUESTIONS
                ================

@@ -69,7 +69,7 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
 
-fp32 load_avg; // used by 4.4BSD scheduler
+fp32 load_avg; // load_avg defined by 4.4BSD scheduler
 
 static void kernel_thread (thread_func *, void *aux);
 
