@@ -4,7 +4,6 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
-#include <fixedpoint.h>
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -105,16 +104,12 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
-
-   int nice; // used by 4.4BSD scheduler
-   fp32 recent_cpu; // used by 4.4BSD scheduler
   };
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 extern bool thread_mlfqs;
-extern fp32 load_avg;
 
 void thread_init (void);
 void thread_start (void);
