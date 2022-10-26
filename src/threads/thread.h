@@ -150,11 +150,5 @@ int thread_get_load_avg (void);
 
 struct thread *thread_list_pop_max_priority(struct list* thread_list);
 bool thread_less_by_priority(const struct list_elem *a, const struct list_elem *b, void *);
-void thread_update_load_avg(void); // used by 4.4BSD scheduler
-void thread_update_recent_cpu(void); // used by 4.4BSD scheduler
-int thread_get_ready_threads_count(void); // used by 4.4BSD scheduler
-void thread_update_priority(struct thread *t, void *aux UNUSED); // used by 4.4BSD scheduler
-
-void thread_sleep(int64_t);
 
 #endif /* threads/thread.h */

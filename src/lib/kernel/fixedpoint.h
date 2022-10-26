@@ -15,10 +15,6 @@ inline int fp32_round(fp32 x) {
     }
 }
 
-inline int fp32_to_int(fp32 x) {
-    return x / (1 << 14);
-}
-
 inline fp32 fp32_add(fp32 x, fp32 y) {
     return x + y;
 }
