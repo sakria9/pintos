@@ -201,23 +201,23 @@ lock_acquire (struct lock *lock)
   ASSERT (!lock_held_by_current_thread (lock));
 
   if (!thread_mlfqs) {
-    enum intr_level old_level = intr_disable();
     if (lock->holder != NULL) {
-      list_push_back(&lock->holder->donator_list, &thread_current()->donatee_elem);
-      thread_current()->donatee = lock->holder;
-      struct thread* donatee = lock->holder;
-      while (donatee != NULL && donatee->priority < thread_current()->priority) {
-        donatee->priority = thread_current()->priority;
-        donatee = donatee->donatee;
+      enum intr_level old_level = intr_disable();
+      if (lock->holder != NULL) {
+        list_push_back(&lock->holder->donator_list, &thread_current()->donatee_elem);
+        thread_current()->donatee = lock->holder;
+        struct thread* donatee = lock->holder;
+        while (donatee != NULL && donatee->priority < thread_current()->priority) {
+          donatee->priority = thread_current()->priority;
+          donatee = donatee->donatee;
+        }
       }
+      intr_set_level(old_level);
     }
-    sema_down (&lock->semaphore);
-    lock->holder = thread_current ();
-    intr_set_level(old_level);
-  } else {
-    sema_down (&lock->semaphore);
-    lock->holder = thread_current ();
   }
+
+  sema_down (&lock->semaphore);
+  lock->holder = thread_current ();
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -252,7 +252,6 @@ lock_release (struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
 
   if (!thread_mlfqs) {
-    enum intr_level old_level = intr_disable();
     struct list* donator_list = &lock->semaphore.waiters;
     for (struct list_elem *e = list_begin(donator_list); e != list_end(donator_list); e = list_next(e)) {
       struct thread *t = list_entry(e, struct thread, elem);
@@ -262,14 +261,12 @@ lock_release (struct lock *lock)
         list_remove(&t->donatee_elem);
       }
     }
-    lock->holder = NULL;
+  }
+  lock->holder = NULL;
+  sema_up (&lock->semaphore);
+  if (!thread_mlfqs) {
     thread_compute_priority();
-    sema_up (&lock->semaphore);
-    intr_set_level(old_level);
     thread_yield();
-  } else {
-    lock->holder = NULL;
-    sema_up (&lock->semaphore);
   }
 }
 
