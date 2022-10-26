@@ -143,18 +143,6 @@ thread_tick (void)
 void
 thread_print_stats (void) 
 {
-  int running = 0, ready = 0, blocked = 0, dying = 0;
-  int old_level = intr_disable();
-  ASSERT (intr_get_level () == INTR_OFF);
-  for (struct list_elem *e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e)) {
-      struct thread *t = list_entry (e, struct thread, allelem);
-      if (t->status == THREAD_RUNNING) running++;
-      else if (t->status == THREAD_READY) ready++;
-      else if (t->status == THREAD_BLOCKED) blocked++;
-      else if (t->status == THREAD_DYING) dying++;
-  }
-  intr_set_level(old_level);
-  printf("Thread: %d running, %d ready, %d blocked, %d dying\n", running, ready, blocked, dying);
   printf ("Thread: %lld idle ticks, %lld kernel ticks, %lld user ticks\n",
           idle_ticks, kernel_ticks, user_ticks);
 }
