@@ -112,8 +112,8 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 
-    int nice;                           /* The niceness defined by 4.4BSD scheduler */
-    fp32 recent_cpu;                    /* The recent cpu defined by 4.4BSD scheduler */
+    int nice;                           /* used by 4.4BSD scheduler */
+    fp32 recent_cpu;                    /* used by 4.4BSD scheduler */
   };
 
 /* If false (default), use round-robin scheduler.
