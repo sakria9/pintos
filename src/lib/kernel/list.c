@@ -274,13 +274,11 @@ list_pop_back (struct list *list)
   return back;
 }
 
-/* Removes the first max element from LIST and returrns it.
-  Undefined behavior if LIST is empty. */
 struct list_elem *
 list_pop_max (struct list *list, list_less_func *less, void *aux)
 {
-  struct list_elem *e = list_max (list, less, aux);
-  list_remove (e);
+  struct list_elem *e = list_max(list, less, aux);
+  list_remove(e);
   return e;
 }
 
