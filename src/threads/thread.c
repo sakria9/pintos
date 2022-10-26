@@ -756,10 +756,10 @@ thread_update_priority (struct thread *t, void *aux UNUSED)
 void
 thread_sleep (int64_t awake_tick)
 {
-  enum intr_level old_level = intr_disable ();
   struct thread *t = thread_current ();
   t->awake_tick = awake_tick;
 
+  enum intr_level old_level = intr_disable ();
   struct list_elem *e;
   struct thread *x;
   for (e = list_rbegin (&sleep_list); e != list_rend (&sleep_list);
