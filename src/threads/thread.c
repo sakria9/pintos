@@ -33,9 +33,7 @@ static int ready_threads; // used by 4.4BSD scheduler
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
-/* List for all sleeping threads. 
-   Sort by awake_time in ascending order.
-*/
+/* List for all sleeping threads. */
 static struct list sleep_list;
 
 /* Idle thread. */
