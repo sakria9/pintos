@@ -133,10 +133,6 @@ main (void)
   run_actions (argv);
 
   /* Finish up. */
-  // 如果某线程的优先级 < main 的优先级低,那么这个线程可能永远不会被运行
-  // 降低 main 的优先级,让一些 ready 的低优先级线程运行
-  // 如果你的 printf 输出莫名被吞了,可以试试降低 main 的优先级
-  // thread_set_priority(1);
   shutdown ();
   thread_exit ();
 }
