@@ -10,7 +10,7 @@
 
 Zhang Yichi <zhangych6@shanghaitech.edu.cn>
 
-Hu Aibo <huab@shanghaitech.edu.cn>
+FirstName LastName <email@domain.example>
 
 
 #### PRELIMINARIES 
@@ -65,59 +65,16 @@ Hu Aibo <huab@shanghaitech.edu.cn>
 > Use ASCII art to diagram a nested donation.  (Alternately, submit a
 > .png file.)
 
-```cpp
-// src/thread/thread.h
-struct thread
-  {
-    // ...
-    int priority;                       /* Priority after donations. */
-    int raw_priority;                   /* Priority before donations. */
-    struct list donator_list;           /* Threads that donating this thread */
-    struct thread* donatee;             /* Thread that this thread is donating */
-    struct list_elem donatee_elem;      /* List element for donator_list */
-    // ...
-  };
-
-// src/thread/synch.c
-struct semaphore_elem 
-  {
-    struct list_elem elem;              /* List element. */
-    struct semaphore semaphore;         /* This semaphore. */
-    struct thread* thread;              /* Thread that is waiting this semaphore */
-  };
-```
-
 #### ALGORITHMS 
 
 > B3: How do you ensure that the highest priority thread waiting for
 > a lock, semaphore, or condition variable wakes up first?
 
-For semaphore, we iterate over `sema->waiters`, and get the thread with the highest priority by helper function `thread_list_pop_max_priority` `list_pop_max` `semaphore_elem_less`. And then we call `thread_unblock` to unblock the thread. Because the thread we unblocked may have higher priority than the current thread, we call `thread_yield` to yield the current thread.
-
-For lock, we use `semaphore` to implement it. So we just need to call `sema_up (&lock->semaphore)`.
-
-For condition variable,  we iterate over `cond->waiters`, and get the waiter with the highest priority by helper function `list_pop_max` `semaphore_elem_less`.
-
 > B4: Describe the sequence of events when a call to lock_acquire()
 > causes a priority donation.  How is nested donation handled?
 
-1. Disable interrupt to avoid race condition.
-2. Check lock holder. If it is not null, we need to donate priority. Otherwise, we just skip the donation. Otherwise, we just skip the donation.
-3. Use a while loop, donate the priority to the holder, donate the priority to the donatee of the holder, donate the priority to the donatee of the the donatee of the holder, and so on. We use `thread->donatee` to track the donatee of the thread, and use `thread->donators` to track the direct donators of the thread.
-4. Call `sema_down` to acquire the lock.
-5. set `lock->holder` to the current thread.
-6. Set interrupt status to the original status.
-
 > B5: Describe the sequence of events when lock_release() is called
 > on a lock that a higher-priority thread is waiting for.
-
-1. Disable interrupt to avoid race condition.
-2. Clear donators of the current thread.
-3. Update the priority of the current thread to its raw priority.
-4. Set `lock->holder` to null.
-5. `sema_up (&lock->semaphore)` to unblock the thread with the highest priority.
-6. Set interrupt status to the original status.
-7. Call `thread_yield` to yield the current thread. 
 
 #### SYNCHRONIZATION 
 
@@ -125,19 +82,10 @@ For condition variable,  we iterate over `cond->waiters`, and get the waiter wit
 > how your implementation avoids it.  Can you use a lock to avoid
 > this race?
 
-`thread_set_priority()` uses `donator_list` to re-calculate priority.
-`donator_list` is only modified in `lock_release` and `lock_acquire`.
-We disable the interrupt in `lock_release` and `lock_acquire`.
-So we avoid the potential race.
-
 #### RATIONALE 
 
 > B7: Why did you choose this design?  In what ways is it superior to
 > another design you considered?
-
-1. To handle `thread_set_priority` correctly, we have to track the donators of the thread. So we add `donator_list` and `donatee_elem` to the thread struct.
-2. To handle chain donation, we add a `donatee` to the thread struct to track the donatee of the thread.
-3. While changing the list to a heap reduces the time complexity, it makes the code more complex. So we use list to implement the priority queue.
 
               ADVANCED SCHEDULER
               ==================
