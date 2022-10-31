@@ -97,10 +97,19 @@ struct thread
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
     int exit_status;                    /* Exit status of the thread. */
+    struct list file_list;              /* List of files opened by the thread. */
+    uint32_t next_fd;                   /* Next file descriptor to be assigned. */
 #endif
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+  };
+
+struct file_node
+  {
+    int fd;                             /* File descriptor. */
+    struct file *file;                  /* File. */
+    struct list_elem elem;              /* List element. */
   };
 
 /* If false (default), use round-robin scheduler.
