@@ -21,6 +21,7 @@
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static bool setup_arguments(void **esp, const char* argument_string, uint8_t *kpage,uint8_t*);
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -90,7 +91,7 @@ int
 process_wait (tid_t child_tid UNUSED)
 {
   // TODO:
-  timer_sleep (10000000);
+  timer_sleep (20);
 }
 
 /* Free the current process's resources. */
@@ -197,7 +198,7 @@ struct Elf32_Phdr
 #define PF_W 2 /* Writable. */
 #define PF_R 4 /* Readable. */
 
-static bool setup_stack (void **esp);
+static bool setup_stack (void **esp, const char*);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -301,7 +302,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-  if (!setup_stack (esp))
+  if (!setup_stack (esp,file_name))
     goto done;
 
   /* Start address. */
@@ -426,7 +427,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp)
+setup_stack (void **esp,const char* argument_string)
 {
   uint8_t *kpage;
   bool success = false;
@@ -434,13 +435,51 @@ setup_stack (void **esp)
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL)
     {
-      success = install_page (((uint8_t *)PHYS_BASE) - PGSIZE, kpage, true);
+      uint8_t *upage=((uint8_t *)PHYS_BASE) - PGSIZE;
+      success = install_page (upage, kpage, true);
       if (success)
-        *esp = PHYS_BASE - 12; // TODO: temporary: avoid page fault
+        setup_arguments(esp,argument_string,kpage,upage);
       else
         palloc_free_page (kpage);
     }
   return success;
+}
+
+static bool setup_arguments(void **esp, const char* argument_string, uint8_t *kpage, uint8_t *upage)
+{
+  uint8_t *top=kpage+PGSIZE;
+  int pos=0;
+  char *save_ptr;
+  int len=strlen(argument_string)+1;
+  char *base_string=top-pos-len;
+  memcpy(base_string,argument_string,len);
+  pos+=len;
+  *(int*)(top-pos-4)=0;
+  pos+=4;
+  int argc=0;
+  // argv[0..m]
+  for (char *token = strtok_r (base_string, " ", &save_ptr); token != NULL;
+        token = strtok_r (NULL, " ", &save_ptr)) {
+    *(int*)(top-pos-4)=(int)((void*)upage+((void*)token-(void*)kpage));
+    pos+=4;
+    argc++;
+  }
+
+  // reverse argv
+  for(int i=0; i<argc/2; i++) {
+    int t=*(int*)(top-pos+i*4);
+    *(int*)(top-pos+i*4) = *(int*)(top-pos+(argc-i-1)*4);
+    *(int*)(top-pos+(argc-i-1)*4)=t;
+  }
+
+  // argv
+  *(int*)(top-pos-4) = ((int)upage+PGSIZE-pos);
+  pos+=4;
+  // argc
+  *(int*)(top-pos-4) = argc;
+  pos+=4;
+  *esp = upage+PGSIZE-pos-4;
+  return true;
 }
 
 /* Adds a mapping from user virtual address UPAGE to kernel
