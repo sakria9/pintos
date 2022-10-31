@@ -113,8 +113,7 @@ exec (const char *cmd_line)
 static int
 wait (pid_t pid)
 {
-  printf ("NOT IMPLEMENTED: wait %d\n", pid);
-  NOT_REACHED ();
+  return process_wait(pid);
 }
 static bool
 create (const char *file, unsigned initial_size)
