@@ -153,7 +153,7 @@ close (int fd)
 static void
 syscall_handler (struct intr_frame *f UNUSED)
 {
-  printf ("system call!\n");
+  // printf ("system call!\n");
   // printf("esp%p\n", f->esp);
 
   // TODO: check esp address
@@ -198,7 +198,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
 
   f->eax = return_value;
-  printf ("end syscall\n");
+  // printf ("end syscall\n");
 }
 
 void
