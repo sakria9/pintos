@@ -37,7 +37,9 @@ filesys_init (bool format)
 void
 filesys_done (void) 
 {
+  FILESYS_LOCK ();
   free_map_close ();
+  FILESYS_UNLOCK ();
 }
 
 /* Creates a file named NAME with the given INITIAL_SIZE.
@@ -47,6 +49,7 @@ filesys_done (void)
 bool
 filesys_create (const char *name, off_t initial_size) 
 {
+  FILESYS_LOCK ();
   block_sector_t inode_sector = 0;
   struct dir *dir = dir_open_root ();
   bool success = (dir != NULL
@@ -56,6 +59,7 @@ filesys_create (const char *name, off_t initial_size)
   if (!success && inode_sector != 0) 
     free_map_release (inode_sector, 1);
   dir_close (dir);
+  FILESYS_UNLOCK ();
 
   return success;
 }
@@ -68,6 +72,7 @@ filesys_create (const char *name, off_t initial_size)
 struct file *
 filesys_open (const char *name)
 {
+  FILESYS_LOCK ();
   struct dir *dir = dir_open_root ();
   struct inode *inode = NULL;
 
@@ -75,7 +80,9 @@ filesys_open (const char *name)
     dir_lookup (dir, name, &inode);
   dir_close (dir);
 
-  return file_open (inode);
+  struct file* file = file_open (inode);
+  FILESYS_UNLOCK ();
+  return file;
 }
 
 /* Deletes the file named NAME.
@@ -85,9 +92,11 @@ filesys_open (const char *name)
 bool
 filesys_remove (const char *name) 
 {
+  FILESYS_LOCK ();
   struct dir *dir = dir_open_root ();
   bool success = dir != NULL && dir_remove (dir, name);
   dir_close (dir); 
+  FILESYS_UNLOCK ();
 
   return success;
 }
@@ -96,10 +105,12 @@ filesys_remove (const char *name)
 static void
 do_format (void)
 {
+  FILESYS_LOCK ();
   printf ("Formatting file system...");
   free_map_create ();
   if (!dir_create (ROOT_DIR_SECTOR, 16))
     PANIC ("root directory creation failed");
   free_map_close ();
   printf ("done.\n");
+  FILESYS_UNLOCK ();
 }
