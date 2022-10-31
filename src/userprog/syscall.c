@@ -6,6 +6,9 @@
 #include "threads/interrupt.h"
 #include "threads/malloc.h"
 #include "threads/thread.h"
+#include "threads/vaddr.h"
+#include "userprog/process.h"
+#include <stdint.h>
 #include <stdio.h>
 #include <syscall-nr.h>
 
@@ -16,7 +19,78 @@ static void syscall_handler (struct intr_frame *);
 int syscall_arg_number[30];
 void *syscall_func[30];
 
+/* Get the file node by fd.
+ * Returns the file_node address if successfull, NULL if not found. */
 static struct file_node *get_file_node_by_fd (struct list *file_list, int fd);
+
+/* Reads a byte at user virtual address UADDR.
+   UADDR must be below PHYS_BASE.
+   Returns the byte value if successful, -1 if a segfault
+   occurred. */
+static int
+get_user (const uint8_t *uaddr)
+{
+  int result;
+  asm("movl $1f, %0; movzbl %1, %0; 1:" : "=&a"(result) : "m"(*uaddr));
+  return result;
+}
+
+/* Writes BYTE to user address UDST.
+   UDST must be below PHYS_BASE.
+   Returns true if successful, false if a segfault occurred. */
+static bool
+put_user (uint8_t *udst, uint8_t byte)
+{
+  int error_code;
+  asm("movl $1f, %0; movb %b2, %1; 1:"
+      : "=&a"(error_code), "=m"(*udst)
+      : "q"(byte));
+  return error_code != -1;
+}
+
+/* Check if int is readable */
+static bool
+check_int_get (int const *uaddr)
+{
+  return is_user_vaddr ((uint8_t *)uaddr)
+         && is_user_vaddr ((uint8_t *)uaddr + 3)
+         && get_user ((uint8_t *)uaddr) != -1
+         && get_user ((uint8_t *)uaddr + 3) != -1;
+}
+
+/* Check if buffer is readable */
+static bool
+check_buffer_get (uint8_t const *buffer, unsigned size)
+{
+  return is_user_vaddr (buffer) && is_user_vaddr (buffer + size - 1)
+         && get_user (buffer) != -1 && get_user (buffer + size - 1) != -1;
+}
+
+/* Check if buffer is writable */
+static bool
+check_buffer_put (uint8_t *buffer, unsigned size)
+{
+  return check_buffer_get (buffer, size)
+         && put_user (buffer, get_user (buffer))
+         && put_user (buffer + size - 1, get_user (buffer + size - 1));
+}
+
+/* Check if string is valid */
+static bool
+check_string (char const *str)
+{
+  while (1)
+    {
+      if (!is_user_vaddr (str))
+        return false;
+      int r = get_user ((uint8_t const *)str);
+      if (r == 0)
+        return true;
+      if (r == -1)
+        return false;
+      str++;
+    }
+}
 
 static void
 exit (int status)
@@ -32,8 +106,9 @@ halt (void)
 static pid_t
 exec (const char *cmd_line)
 {
-  printf ("NOT IMPLEMENTED: exec %p\n", cmd_line);
-  NOT_REACHED ();
+  if (!check_string (cmd_line))
+    exit (-1);
+  return process_execute (cmd_line);
 }
 static int
 wait (pid_t pid)
@@ -44,19 +119,22 @@ wait (pid_t pid)
 static bool
 create (const char *file, unsigned initial_size)
 {
-  // TODO: check if char * points to a valid address
+  if (!check_string (file))
+    exit (-1);
   return filesys_create (file, initial_size);
 }
 static bool
 remove (const char *file)
 {
-  // TODO: check if char * points to a valid address
+  if (!check_string (file))
+    exit (-1);
   return filesys_remove (file);
 }
 static int
 open (const char *file)
 {
-  // TODO: check if char * points to a valid address
+  if (!check_string (file))
+    exit (-1);
   struct file *f = filesys_open (file);
   if (f == NULL)
     return -1;
@@ -81,7 +159,9 @@ filesize (int fd)
 static int
 read (int fd, void *buffer, unsigned size)
 {
-  // TODO: check buffer address valid
+  if (!check_buffer_put (buffer, size))
+    exit (-1);
+
   if (fd == 0)
     {
       uint8_t *buf = buffer;
@@ -94,14 +174,16 @@ read (int fd, void *buffer, unsigned size)
       struct file_node *file_node
           = get_file_node_by_fd (&thread_current ()->file_list, fd);
       if (!file_node)
-        exit (-1);
+        return -1;
       return file_read (file_node->file, buffer, size);
     }
 }
 static int
 write (int fd, const void *buffer, unsigned size)
 {
-  // TODO: check buffer address valid
+  if (!check_buffer_get (buffer, size))
+    exit (-1);
+
   if (fd == 1)
     {
       putbuf (buffer, size);
@@ -156,7 +238,8 @@ syscall_handler (struct intr_frame *f UNUSED)
   // printf ("system call!\n");
   // printf("esp%p\n", f->esp);
 
-  // TODO: check esp address
+  if (!check_int_get (f->esp))
+    exit (-1);
   int syscall_id = *(int *)f->esp;
   if (syscall_id < 0 || syscall_id >= 30)
     exit (-1);
@@ -170,8 +253,10 @@ syscall_handler (struct intr_frame *f UNUSED)
   int args[3];
   for (int i = 0; i < arg_number; i++)
     {
-      // check esp + 4*(i+1)
-      args[i] = *(int *)(f->esp + 4 * (i + 1));
+      int *arg = (int *)f->esp + 1 + i;
+      if (!check_int_get (arg))
+        exit (-1);
+      args[i] = *arg;
     }
 
   int return_value;
