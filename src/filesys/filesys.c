@@ -17,6 +17,8 @@ static void do_format (void);
 void
 filesys_init (bool format) 
 {
+  filesys_lock_init ();
+
   fs_device = block_get_role (BLOCK_FILESYS);
   if (fs_device == NULL)
     PANIC ("No file system device found, can't initialize file system.");
@@ -28,8 +30,6 @@ filesys_init (bool format)
     do_format ();
 
   free_map_open ();
-
-  filesys_lock_init ();
 }
 
 /* Shuts down the file system module, writing any unwritten data
