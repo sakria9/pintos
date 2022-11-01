@@ -115,11 +115,12 @@ struct thread
 */
 struct pa_ch_link
 {
-  struct lock locker; // lock this structure.
+  struct lock lock; // lock this structure.
   int reference_cnt; // reference counter. the structure will be deleted when count=0
   struct list_elem child_list_elem;  /* The list element of child_list*/
   struct thread* parent; 
   struct thread* child;
+  //struct semaphore child_up; /* signal that child init success*/
   struct semaphore child_dead;         /* Semaphore to check if child prcess is dead.  1: alive; 0:dead*/
   int exit_code; // child process exit code. Used by process_wait.
 };

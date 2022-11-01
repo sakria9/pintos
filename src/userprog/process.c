@@ -3,10 +3,12 @@
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "list.h"
 #include "threads/flags.h"
 #include "threads/init.h"
 #include "threads/interrupt.h"
 #include "threads/palloc.h"
+#include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "userprog/gdt.h"
@@ -18,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "threads/malloc.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -53,10 +56,30 @@ process_execute (const char *file_name)
     ((char*)file_name)[p]='\0';
   }
 
+  //passing parent thread to child.
+  struct thread* cur=thread_current();
+  struct pa_ch_link* link=malloc(sizeof(struct pa_ch_link));
+  link->parent=cur;
+  link->reference_cnt=2;
+  //sema_init(&link->child_up, 0);
+  lock_init(&link->lock);
+
+  int len=strlen(fn_copy);
+  *(void**)(fn_copy+len+1)=link;
+
+  lock_acquire(&link->lock); //child shouldn't dead before parent init link.
+
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
-  if (tid == TID_ERROR)
+  if (tid!=TID_ERROR) {
+    //sema_down(&link->child_up); // wait for child to load
+    list_push_back(&cur->child_list, &link->child_list_elem);
+  } 
+  lock_release(&link->lock);
+  if (tid == TID_ERROR) {
     palloc_free_page (fn_copy);
+    free(link);
+  }
 
   //restore the filename
   if (p!=-1) {
@@ -76,12 +99,22 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
 
+
+  struct thread* cur=thread_current();
+  int len=strlen(file_name);
+  cur->pa_link = *(void**)(file_name+len+1);
+  printf("Parent tid: %d\n",cur->pa_link->parent->tid);
+  cur->pa_link->child = cur;
+  //printf("My tid: %d\n",cur->tid);
+
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
+
+  //sema_up(&cur->pa_link->child_up);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -110,8 +143,10 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED)
 {
-  // TODO:
-  timer_sleep (20);
+  struct thread *cur=thread_current();
+  timer_sleep(10);
+  //for(struct list *e=list_begin(cur))
+  return -1;
 }
 
 /* Free the current process's resources. */
