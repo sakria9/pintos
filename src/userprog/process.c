@@ -33,6 +33,7 @@ static bool setup_arguments(void **esp, const char* argument_string, uint8_t *kp
 tid_t
 process_execute (const char *file_name)
 {
+  //printf("process_execute: %s\n",file_name);
   char *fn_copy;
   tid_t tid;
 
@@ -42,26 +43,23 @@ process_execute (const char *file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
+  void *file_name_real = malloc(strlen(file_name)+1);
+  strlcpy(file_name_real,file_name,strlen(file_name)+1);
   /*void *fn_tmp=malloc(strlen(file_name)+1);
   strlcpy (fn_tmp, file_name, strlen(file_name)+1);
   char* token,*save_ptr;
   token=strtok_r(fn_tmp, " ", &save_ptr);*/
 
   //cut the real filename
-  int p=0;
-  for(; file_name[p]!=0 && file_name[p]!=' '; p++);
-  if (file_name[p]==0) {
-    p=-1;
-  } else {
-    ((char*)file_name)[p]='\0';
-  }
+  char* save_ptr;
+  strtok_r(file_name_real, " ", &save_ptr);
 
   //passing parent thread to child.
   struct thread* cur=thread_current();
   struct pa_ch_link* link=malloc(sizeof(struct pa_ch_link));
   link->parent=cur;
   link->reference_cnt=2;
-  //sema_init(&link->child_up, 0);
+  sema_init(&link->child_dead, 0);
   lock_init(&link->lock);
 
   int len=strlen(fn_copy);
@@ -70,8 +68,9 @@ process_execute (const char *file_name)
   lock_acquire(&link->lock); //child shouldn't dead before parent init link.
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (file_name_real, PRI_DEFAULT, start_process, fn_copy);
   if (tid!=TID_ERROR) {
+    link->child_tid=tid;
     //sema_down(&link->child_up); // wait for child to load
     list_push_back(&cur->child_list, &link->child_list_elem);
   } 
@@ -81,10 +80,6 @@ process_execute (const char *file_name)
     free(link);
   }
 
-  //restore the filename
-  if (p!=-1) {
-    ((char*)file_name)[p]=' ';
-  }
   
   //free(fn_tmp);
   return tid;
@@ -96,6 +91,7 @@ static void
 start_process (void *file_name_)
 {
   char *file_name = file_name_;
+  //printf("start_process: %s\n",file_name);
   struct intr_frame if_;
   bool success;
 
@@ -103,8 +99,9 @@ start_process (void *file_name_)
   struct thread* cur=thread_current();
   int len=strlen(file_name);
   cur->pa_link = *(void**)(file_name+len+1);
-  printf("Parent tid: %d\n",cur->pa_link->parent->tid);
+  //printf("Parent tid: %d\n",cur->pa_link->parent->tid);
   cur->pa_link->child = cur;
+  cur->pa_link->child_tid = cur->tid;
   //printf("My tid: %d\n",cur->tid);
 
   /* Initialize interrupt frame and load executable. */
@@ -118,8 +115,10 @@ start_process (void *file_name_)
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
-  if (!success)
+  if (!success) {
+    cur->exit_status=-1;
     thread_exit ();
+  }
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -144,8 +143,17 @@ int
 process_wait (tid_t child_tid UNUSED)
 {
   struct thread *cur=thread_current();
-  timer_sleep(10);
-  //for(struct list *e=list_begin(cur))
+  for(struct list_elem *e = list_begin(&cur->child_list); e!=list_end(&cur->child_list); e=list_next(e)) {
+    struct pa_ch_link *link = list_entry(e, struct pa_ch_link, child_list_elem);
+    if (link->child_tid==child_tid) {
+      list_remove(e);
+      sema_down(&link->child_dead);
+      lock_acquire(&link->lock);
+      int exit_code = link->exit_code;
+      process_unlink(link);
+      return exit_code;
+    }
+  }
   return -1;
 }
 
@@ -154,6 +162,19 @@ void
 process_exit (void)
 {
   struct thread *cur = thread_current ();
+  if (cur->tid!=1) {
+    lock_acquire(&cur->pa_link->lock);
+    cur->pa_link->exit_code=cur->exit_status;
+    sema_up(&cur->pa_link->child_dead);
+    process_unlink(cur->pa_link);
+  }
+
+  for(struct list_elem *e = list_begin(&cur->child_list); e!=list_end(&cur->child_list); e=list_next(e)) {
+    struct pa_ch_link* link=list_entry(e, struct pa_ch_link, child_list_elem);
+    lock_acquire(&link->lock);
+    link->parent=NULL;
+    process_unlink(link);
+  }
   uint32_t *pd;
 
   /* Destroy the current process's page directory and switch back
