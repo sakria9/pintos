@@ -48,9 +48,47 @@ header-includes:
 > `struct` member, global or static variable, `typedef`, or
 > enumeration.  Identify the purpose of each in 25 words or less.
 
+```cpp
+// src/threads/thread.h
+struct thread
+  {
+    ...
+    int exit_status;                    /* Exit status of the thread. */
+    struct list file_list;              /* List of files opened by the thread. */
+    uint32_t next_fd;                   /* Next file descriptor to be assigned. */
+    ...
+  };
+/* Element of file_list in thread */
+struct file_node
+  {
+    int fd;                             /* File descriptor. */
+    struct file *file;                  /* File. */
+    struct list_elem elem;              /* List element. */
+  };
+
+// src/userprog/syscall.c
+typedef int pid_t; /* Corresponding to the documents */
+int syscall_arg_number[30]; /* The number of arguments of every syscall */
+void *syscall_func[30]; /* The function pointer of every syscall */
+
+// src/filesys/file.c
+static struct lock filesys_lock; /* Lock for file system operations. */
+```
+
 > B2: Describe how file descriptors are associated with open files.
 > Are file descriptors unique within the entire OS or just within a
 > single process?
+
+A file descriptor is a number.
+For each thread, we use a linked list `file_list` to store the opened files.
+In `struct file_node`, `fd` is the file descriptor and `file` is a `struct file` pointer.
+
+When accessing a file by a file descriptor,
+we iterate over the `file_list` and return the `struct file_node *` whose `fd` equals to the file descriptor we given. See `static struct file_node *get_file_node_by_fd (struct list *file_list, int fd);` in `src/userprog/syscall.c`.
+
+File descriptors are unique just within a single process.
+When `open` syscall is called, the new file descriptor is determined by `thread.next_fd`.
+`next_fd` is not shared between processes.
 
 ### ALGORITHMS
 
