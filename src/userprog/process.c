@@ -26,7 +26,7 @@ static bool setup_arguments(void **esp, const char* argument_string, uint8_t *kp
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
-   thread id, or TID_ERROR if the thread cannot be created. */
+   thread id, or TID_ERROR if the thread canno/t be created. */
 tid_t
 process_execute (const char *file_name)
 {
@@ -39,11 +39,31 @@ process_execute (const char *file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
+  /*void *fn_tmp=malloc(strlen(file_name)+1);
+  strlcpy (fn_tmp, file_name, strlen(file_name)+1);
+  char* token,*save_ptr;
+  token=strtok_r(fn_tmp, " ", &save_ptr);*/
+
+  //cut the real filename
+  int p=0;
+  for(; file_name[p]!=0 && file_name[p]!=' '; p++);
+  if (file_name[p]==0) {
+    p=-1;
+  } else {
+    ((char*)file_name)[p]='\0';
+  }
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
+
+  //restore the filename
+  if (p!=-1) {
+    ((char*)file_name)[p]=' ';
+  }
+  
+  //free(fn_tmp);
   return tid;
 }
 
@@ -225,13 +245,28 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
+  //cut the real filename
+  int p=0;
+  for(; file_name[p]!=0 && file_name[p]!=' '; p++);
+  if (file_name[p]==0) {
+    p=-1;
+  } else {
+    ((char*)file_name)[p]='\0';
+  }
+
   /* Open executable file. */
   file = filesys_open (file_name);
+
   if (file == NULL)
     {
       printf ("load: %s: open failed\n", file_name);
       goto done;
     }
+  
+  //restore the filename
+  if (p!=-1) {
+    ((char*)file_name)[p]=' ';
+  }
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
