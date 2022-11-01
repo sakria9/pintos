@@ -12,12 +12,9 @@
 #include <stdio.h>
 #include <syscall-nr.h>
 
-typedef int pid_t;
-
-static void syscall_handler (struct intr_frame *);
-
-int syscall_arg_number[30];
-void *syscall_func[30];
+typedef int pid_t;          /* Corresponding to the documents */
+int syscall_arg_number[30]; /* The number of arguments of every syscall */
+void *syscall_func[30];     /* The function pointer of every syscall */
 
 /* Get the file node by fd.
  * Returns the file_node address if successfull, NULL if not found. */
@@ -113,7 +110,7 @@ exec (const char *cmd_line)
 static int
 wait (pid_t pid)
 {
-  return process_wait(pid);
+  return process_wait (pid);
 }
 static bool
 create (const char *file, unsigned initial_size)
@@ -260,26 +257,15 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   int return_value;
   if (arg_number == 0)
-    {
-      return_value = ((int (*) (void))func) ();
-    }
+    return_value = ((int (*) (void))func) ();
   else if (arg_number == 1)
-    {
-      return_value = ((int (*) (int))func) (args[0]);
-    }
+    return_value = ((int (*) (int))func) (args[0]);
   else if (arg_number == 2)
-    {
-      return_value = ((int (*) (int, int))func) (args[0], args[1]);
-    }
+    return_value = ((int (*) (int, int))func) (args[0], args[1]);
   else if (arg_number == 3)
-    {
-      return_value
-          = ((int (*) (int, int, int))func) (args[0], args[1], args[2]);
-    }
+    return_value = ((int (*) (int, int, int))func) (args[0], args[1], args[2]);
   else
-    {
-      NOT_REACHED ();
-    }
+    NOT_REACHED ();
 
   f->eax = return_value;
   // printf ("end syscall\n");
@@ -347,9 +333,7 @@ get_file_node_by_fd (struct list *file_list, int fd)
     {
       f = list_entry (e, struct file_node, elem);
       if (f->fd == fd)
-        {
-          return f;
-        }
+        return f;
     }
   return NULL;
 }

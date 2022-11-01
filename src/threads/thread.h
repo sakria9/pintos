@@ -141,6 +141,7 @@ static void process_unlink(struct pa_ch_link *link)
   }
 }
 
+/* Element of file_list in thread */
 struct file_node
   {
     int fd;                             /* File descriptor. */
