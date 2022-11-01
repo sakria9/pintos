@@ -79,9 +79,9 @@ process_execute (const char *file_name)
     palloc_free_page (fn_copy);
     free(link);
   }
-
   
-  //free(fn_tmp);
+  
+  free(file_name_real);
   return tid;
 }
 
