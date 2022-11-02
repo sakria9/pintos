@@ -18,6 +18,9 @@ header-includes:
 > preparing your submission, other than the Pintos documentation, course
 > text, lecture notes, and course staff.
 
+- [get_user function](https://stackoverflow.com/questions/14922022/need-to-figure-out-the-meaning-of-following-inline-assembly-code)
+- [How does thread/process switching work in Pintos?](https://uchicago-cs.github.io/mpcs52030/switch.html)
+
 ## ARGUMENT PASSING
 
 ### DATA STRUCTURES
@@ -95,12 +98,26 @@ When `open` syscall is called, the new file descriptor is determined by `thread.
 > B3: Describe your code for reading and writing user data from the
 > kernel.
 
+Because interrupts does not change the page directory, we can access the user memory directly in the interrupt handler.
+After checking the address is valid, we can read or write the memeory directly.
+
+The method we adopted to check the validity of the user memory address is described in **B6**.
+
 > B4: Suppose a system call causes a full page (4,096 bytes) of data
 > to be copied from user space into the kernel.  What is the least
 > and the greatest possible number of inspections of the page table
 > (e.g. calls to pagedir_get_page()) that might result?  What about
 > for a system call that only copies 2 bytes of data?  Is there room
 > for improvement in these numbers, and how much?
+
+In a naive implementation, we simply check every address before reading.
+Thus the greatest possible number of inspections is 4096.
+
+However since the page size is 4KB, the data is on at most 2 pages.
+We can use `lookup_page` and other functions to check the validity of the address.
+Thus the least possible number of inspections is 2.
+
+For 2 bytes, the maximum number of inspections is 2048 and the minimum number is also 2.
 
 > B5: Briefly describe your implementation of the "wait" system call
 > and how it interacts with process termination.
@@ -118,6 +135,28 @@ When `open` syscall is called, the new file descriptor is determined by `thread.
 > allocated resources (locks, buffers, etc.) are freed?  In a few
 > paragraphs, describe the strategy or strategies you adopted for
 > managing these issues.  Give an example.
+
+After reading the Pintos documentation,
+we modified `page_fault` exception handler, which is called when a page fault occurs.
+If the page fault is occurred in kernel mode,
+instead of panicking,
+we set `eax` to -1 and set `eip` to `eax` because `eax` stores the address of the next instruction.
+
+We use `get_user` and `put_user` to check the validity of the user memory address. Besides, we write some helper functions, such as `check_int_get`, `check_buffer_get`, `check_buffer_put`, `check_string`.
+
+To keep code clean, checking the validity of syscall id and arguments is done in the `syscall_handler`.
+Checking the validity of `buffer` or `file` or `cmd_line` is done in the corresponding system call function.
+
+Checking is done at the begining, before any resource allocation.
+
+For example, when `syscall_handler` is invoked
+
+1. Check whether `f->esp` points to a valid user memory using `check_int_get`.
+2. If `f->esp` is valid, read the integer which indicates the syscall id Let's assume it is `write`.
+3. `write` needs $3$ arguments. Chcek the validity of `f->esp + 1`, `f->esp + 2`, `f->esp + 3`.
+4. Check `buffer` and `buffer + size - 1` is writable for user.
+5. Do stuff...
+
 
 ### SYNCHRONIZATION
 
@@ -138,11 +177,28 @@ When `open` syscall is called, the new file descriptor is determined by `thread.
 > B9: Why did you choose to implement access to user memory from the
 > kernel in the way that you did?
 
+We choose the method that check only that a user pointer points below PHYS_BASE, then dereference it.
+According to Pintos documentation, this method is normally faster.
+Once we verified the address is valid, we can simply use it without copying it to kernel space, which is more efficient.
+
 > B10: What advantages or disadvantages can you see to your design
 > for file descriptors?
 
+We use linked list to store file nodes.
+
+Advantages: 
+
+- `open` syscall inserts a file node after the list, which is fast.
+- The file descriptor counter is not shared between processes, so there is no synchronization cost.
+
+Disadvantages:
+
+- `read/write/...` syscalls need to get `file` pointer by iterating over the list, which is slow.
+
 > B11: The default tid_t to pid_t mapping is the identity mapping.
 > If you changed it, what advantages are there to your approach?
+
+We does not change it because multithreaded processes are not supported in Pintos.
 
 ## SURVEY QUESTIONS
 
