@@ -35,13 +35,32 @@ header-includes:
 > you arrange for the elements of argv[] to be in the right order?
 > How do you avoid overflowing the stack page?
 
+We add a `setup_arguments()` function called by `setup_stack()`.
+
+1. Check the length of arguments. If the length is too long, return false.
+2. Copy arguments from kernel space to user stack.
+3. Use `strtok_r()` to split arguments and setup `argv[]` and `argc`.
+4. Reverse `argv[]` to make it in the right order.
+5. Set `esp` to the top of the stack.
+
+To avoid overflowing the stack page, we check the length of arguments and the number of arguments.
+
 ### RATIONALE
 
-> A3: Why does Pintos implement strtok_r() but not strtok()?
+> A3: Why does Pintos implement strtok_r() but not strtok()?`
+
+The `strtok_r()` function is a reentrant version of `strtok()`.
+`strtok()` is "stateful", which means that it keeps track of where it is in the string.
+This makes it impossible to use `strtok()` in a multithreaded program, because the state of the function is global.
+`strtok_r()` is a thread-safe version of `strtok()`.
 
 > A4: In Pintos, the kernel separates commands into a executable name
 > and arguments.  In Unix-like systems, the shell does this
 > separation.  Identify at least two advantages of the Unix approach.
+
+- The shell can do more complex parsing, such as quoting and escaping.
+- Less code in the kernel.
+- Less time spent in the kernel.
 
 ## SYSTEM CALLS
 
