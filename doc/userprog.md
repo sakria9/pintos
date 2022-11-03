@@ -193,7 +193,7 @@ Advantages:
 
 Disadvantages:
 
-- `read/write/...` syscalls need to get `file` pointer by iterating over the list, which is slow.
+- `read/write/...` syscalls need to iterate over the list to get `file` pointer, which is slow.
 
 > B11: The default tid_t to pid_t mapping is the identity mapping.
 > If you changed it, what advantages are there to your approach?
