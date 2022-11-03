@@ -59,7 +59,9 @@ process_execute (const char *file_name)
   struct pa_ch_link* link=malloc(sizeof(struct pa_ch_link));
   link->parent=cur;
   link->reference_cnt=2;
+  link->child_tid=0;
   sema_init(&link->child_dead, 0);
+  sema_init(&link->child_start,0);
   lock_init(&link->lock);
 
   int len=strlen(fn_copy);
@@ -69,16 +71,21 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name_real, PRI_DEFAULT, start_process, fn_copy);
-  if (tid!=TID_ERROR) {
-    link->child_tid=tid;
-    //sema_down(&link->child_up); // wait for child to load
-    list_push_back(&cur->child_list, &link->child_list_elem);
-  } 
-  lock_release(&link->lock);
   if (tid == TID_ERROR) {
+    lock_release(&link->lock);
     palloc_free_page (fn_copy);
     free(link);
-  }
+  } else {
+    sema_down(&link->child_start);
+    if (!link->success) {
+      tid=TID_ERROR;
+      process_unlink(link);
+    } else {
+      lock_release(&link->lock);
+      link->child_tid=tid;
+      list_push_back(&cur->child_list, &link->child_list_elem);
+    }
+  } 
   
   
   free(file_name_real);
@@ -99,10 +106,8 @@ start_process (void *file_name_)
   struct thread* cur=thread_current();
   int len=strlen(file_name);
   cur->pa_link = *(void**)(file_name+len+1);
-  //printf("Parent tid: %d\n",cur->pa_link->parent->tid);
   cur->pa_link->child = cur;
   cur->pa_link->child_tid = cur->tid;
-  //printf("My tid: %d\n",cur->tid);
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -110,15 +115,16 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
-
-  //sema_up(&cur->pa_link->child_up);
+  if (cur->tid!=1) cur->pa_link->success=success;
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) {
     cur->exit_status=-1;
+    sema_up(&cur->pa_link->child_start);
     thread_exit ();
   }
+  sema_up(&cur->pa_link->child_start);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -162,6 +168,7 @@ void
 process_exit (void)
 {
   struct thread *cur = thread_current ();
+  bool success = (cur->tid==1) || cur->pa_link->success;
   if (cur->tid!=1) {
     lock_acquire(&cur->pa_link->lock);
     cur->pa_link->exit_code=cur->exit_status;
@@ -182,7 +189,9 @@ process_exit (void)
   pd = cur->pagedir;
   if (pd != NULL)
     {
-      printf ("%s: exit(%d)\n", cur->name, cur->exit_status);
+      if (success) {
+        printf ("%s: exit(%d)\n", cur->name, cur->exit_status);
+      }
       /* Correct ordering here is crucial.  We must set
          cur->pagedir to NULL before switching page directories,
          so that a timer interrupt can't switch back to the
@@ -315,7 +324,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   if (file == NULL)
     {
-      printf ("load: %s: open failed\n", file_name);
+      //printf ("load: %s: open failed\n", file_name);
       goto done;
     }
   
