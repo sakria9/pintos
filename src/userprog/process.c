@@ -24,7 +24,7 @@
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
-static bool setup_arguments(void **esp, const char* argument_string, uint8_t *kpage,uint8_t*);
+static bool setup_arguments(void **esp, const char* argument_string);
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -527,50 +527,49 @@ setup_stack (void **esp,const char* argument_string)
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL)
     {
-      uint8_t *upage=((uint8_t *)PHYS_BASE) - PGSIZE;
-      success = install_page (upage, kpage, true);
+      success = install_page (((uint8_t *)PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        setup_arguments(esp,argument_string,kpage,upage);
+        success = setup_arguments(esp, argument_string);
       else
         palloc_free_page (kpage);
     }
   return success;
 }
 
-static bool setup_arguments(void **esp, const char* argument_string, uint8_t *kpage, uint8_t *upage)
+static bool
+setup_arguments (void **esp, const char *argument_string)
 {
-  uint8_t *top=kpage+PGSIZE;
-  int pos=0;
+  uint8_t *top = PHYS_BASE;
+
+  unsigned int argument_length = strlen (argument_string) + 1;
+  if (argument_length > 1024)
+    return false;
+  memcpy (top -= argument_length, argument_string, argument_length);
+  char *stack_argument_string = (char *)top;
+
+  unsigned int argc = 0;
   char *save_ptr;
-  int len=strlen(argument_string)+1;
-  char *base_string=top-pos-len;
-  memcpy(base_string,argument_string,len);
-  pos+=len;
-  *(int*)(top-pos-4)=0;
-  pos+=4;
-  int argc=0;
-  // argv[0..m]
-  for (char *token = strtok_r (base_string, " ", &save_ptr); token != NULL;
-        token = strtok_r (NULL, " ", &save_ptr)) {
-    *(int*)(top-pos-4)=(int)((void*)upage+((void*)token-(void*)kpage));
-    pos+=4;
-    argc++;
-  }
+  for (char *token = strtok_r (stack_argument_string, " ", &save_ptr);
+       token != NULL; token = strtok_r (NULL, " ", &save_ptr))
+    {
+      *(char **)(top -= 4) = token;
+      argc++;
+    }
+  *(char **)(top -= 4) = NULL; /* The length of argv[] is argc + 1 */
+  char **argv = (char **)top;
+  /* Reverse argv[] */
+  for (char **front = argv, **back = argv + argc; front < back;
+       ++front, --back)
+    {
+      char *t = *front;
+      *front = *back;
+      *back = t;
+    }
 
-  // reverse argv
-  for(int i=0; i<argc/2; i++) {
-    int t=*(int*)(top-pos+i*4);
-    *(int*)(top-pos+i*4) = *(int*)(top-pos+(argc-i-1)*4);
-    *(int*)(top-pos+(argc-i-1)*4)=t;
-  }
-
-  // argv
-  *(int*)(top-pos-4) = ((int)upage+PGSIZE-pos);
-  pos+=4;
-  // argc
-  *(int*)(top-pos-4) = argc;
-  pos+=4;
-  *esp = upage+PGSIZE-pos-4;
+  *(char ***)(top -= 4) = argv;
+  *(int *)(top -= 4) = argc;
+  *(int *)(top -= 4) = 0; /* Return address, never used */
+  *esp = top;
   return true;
 }
 
