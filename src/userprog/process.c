@@ -183,6 +183,17 @@ process_exit (void)
     link->parent=NULL;
     process_unlink(link);
   }
+
+  /* Close all unclosed file and free the memory */
+  for (struct list_elem *e = list_begin (&cur->file_list);
+       e != list_end (&cur->file_list);)
+    {
+      struct file_node *f = list_entry (e, struct file_node, elem);
+      e = list_next (e);
+      file_close (f->file);
+      free (f);
+    }
+
   uint32_t *pd;
 
   /* Destroy the current process's page directory and switch back
