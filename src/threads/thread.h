@@ -122,11 +122,10 @@ struct pa_ch_link
   struct thread* parent; 
   struct thread* child;
   int child_tid;
-  //struct semaphore child_up; /* signal that child init success*/
   struct semaphore child_dead;         /* Semaphore to check if child prcess is dead.  0: alive; 1:dead*/
   struct semaphore child_start; /* Semaphore to check if child finishes starting.*/
   int exit_code; // child process exit code. Used by process_wait.
-  bool success;
+  bool success; // Whether child process loaded successfully.
 };
 
 /* When a process exited, unlink the relationship with its parent or children

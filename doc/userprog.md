@@ -29,6 +29,8 @@ header-includes:
 > `struct` member, global or static variable, `typedef`, or
 > enumeration.  Identify the purpose of each in 25 words or less.
 
+No new structures.
+
 ### ALGORITHMS
 
 > A2: Briefly describe how you implemented argument parsing.  How do
@@ -141,6 +143,26 @@ For 2 bytes, the maximum number of inspections is 2048 and the minimum number is
 > B5: Briefly describe your implementation of the "wait" system call
 > and how it interacts with process termination.
 
+We use a structure to connect between parent and child process. This structure creates when child process is creating and will be destory after parent and children process both dead. So it can pass information between parent process and child process, whether they are alive or not.
+```cpp
+struct pa_ch_link
+{
+  struct lock lock; // lock this structure.
+  int reference_cnt; // reference counter. the structure will be deleted when count=0
+  struct list_elem child_list_elem;  /* The list element of child_list*/
+  struct thread* parent; 
+  struct thread* child;
+  int child_tid;
+  struct semaphore child_dead;         /* Semaphore to check if child prcess is dead.  0: alive; 1:dead*/
+  struct semaphore child_start; /* Semaphore to check if child finishes starting.*/
+  int exit_code; // child process exit code. Used by process_wait.
+  bool success; // Whether child process loaded successfully.
+};
+```
+
+In ``process_wait()``, it will wait until semaphore child_dead up.  When child process is exiting, it sets ``exit_code`` and ``sema_up(child_dead)``, so that parent process can know when child process dead and what's its exit code.
+
+
 > B6: Any access to user program memory at a user-specified address
 > can fail due to a bad pointer value.  Such accesses must cause the
 > process to be terminated.  System calls are fraught with such
@@ -184,12 +206,23 @@ For example, when `syscall_handler` is invoked
 > loading.  How does your code ensure this?  How is the load
 > success/failure status passed back to the thread that calls "exec"?
 
+In our ``pa_ch_link`` structure, there is a semaphore ``child_start`` and a bool ``suceess``. 
+
+Child process will ``sema_up(&child_start)`` when it completed loading or failed to load, and set ``success``. 
+
+Parent process waits ``child_start`` in ``process_execute``, so it will return after child process loaded, and knows whether child process successfully loads.
+
+
 > B8: Consider parent process P with child process C.  How do you
 > ensure proper synchronization and avoid race conditions when P
 > calls wait(C) before C exits?  After C exits?  How do you ensure
 > that all resources are freed in each case?  How about when P
 > terminates without waiting, before C exits?  After C exits?  Are
 > there any special cases?
+
+
+
+# TODO
 
 ### RATIONALE
 
