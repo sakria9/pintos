@@ -103,6 +103,7 @@ struct thread
 
     struct list child_list;             /* List of child processes. Node type is pa_ch_link */
     struct pa_ch_link *pa_link;
+    struct file* exec_file;
 #endif
 
     /* Owned by thread.c. */

@@ -117,8 +117,8 @@ start_process (void *file_name_)
   success = load (file_name, &if_.eip, &if_.esp);
   if (cur->tid!=1) cur->pa_link->success=success;
 
-  /* If load failed, quit. */
   palloc_free_page (file_name);
+  /* If load failed, quit. */
   if (!success) {
     cur->exit_status=-1;
     sema_up(&cur->pa_link->child_start);
@@ -174,6 +174,7 @@ process_exit (void)
     cur->pa_link->exit_code=cur->exit_status;
     sema_up(&cur->pa_link->child_dead);
     process_unlink(cur->pa_link);
+    file_close(cur->exec_file);
   }
 
   for(struct list_elem *e = list_begin(&cur->child_list); e!=list_end(&cur->child_list); e=list_next(e)) {
@@ -327,6 +328,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
       //printf ("load: %s: open failed\n", file_name);
       goto done;
     }
+
+  file_deny_write(file);
+  t->exec_file=file;
   
   //restore the filename
   if (p!=-1) {
@@ -413,7 +417,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
 done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  //file_close (file);
   return success;
 }
 
