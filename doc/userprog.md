@@ -220,9 +220,23 @@ Parent process waits ``child_start`` in ``process_execute``, so it will return a
 > terminates without waiting, before C exits?  After C exits?  Are
 > there any special cases?
 
+In our ``pa_ch_link`` structure, there is a ``lock`` to avoid race condition. Only one thread can operate this structure at the same time.
+
+The structure has a reference counter. The structure will be freed when these two conditions are both satisfied: 
+
+1. child process exited.
+
+2. parent process exited, or it called ``process_wait()``
+
+So it will always be freed after not being needed.
+
+If parent terminates before child exits, reference counter -=1 , and the structure will be freed when child process exits.
+
+If parent terminates after child exits, the structure will be freed when parent process exits.
+
+Reference counting ensures that the structure has the correct lifecycle, regardless of the case.
 
 
-# TODO
 
 ### RATIONALE
 
