@@ -534,9 +534,11 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       /* Get a page of memory. */
-      uint8_t *kpage = palloc_get_page (PAL_USER);
-      if (kpage == NULL)
+      uint8_t *kpage = palloc_get_page (PAL_USER);//TODO: replace it with page manager.
+      if (kpage == NULL) {
+        printf("User pool empty\n");
         return false;
+      }
 
       /* Load this page. */
       if (file_read (file, kpage, page_read_bytes) != (int)page_read_bytes)
@@ -569,7 +571,7 @@ setup_stack (void **esp, const char *argument_string)
   uint8_t *kpage;
   bool success = false;
 
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+  kpage = palloc_get_page (PAL_USER | PAL_ZERO); //TODO: replace it with page manager.
   if (kpage != NULL)
     {
       success = install_page (((uint8_t *)PHYS_BASE) - PGSIZE, kpage, true);
