@@ -359,6 +359,8 @@ intr_handler (struct intr_frame *frame)
 
       in_external_intr = true;
       yield_on_return = false;
+    } else {
+      thread_current()->esp = frame->esp;
     }
 
   /* Invoke the interrupt's handler. */
@@ -385,6 +387,7 @@ intr_handler (struct intr_frame *frame)
 
       if (yield_on_return) 
         thread_yield (); 
+    } else {
     }
 }
 

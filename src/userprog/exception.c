@@ -4,6 +4,7 @@
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "vm/page.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -153,7 +154,12 @@ page_fault (struct intr_frame *f)
      which fault_addr refers. */
   if (user)
     {
-      thread_current ()->exit_status = -1;
+#ifdef VM
+      struct thread* t=thread_current();
+      if (page_fault_handler(&t->page_table, fault_addr, t->esp, write)) 
+         return; // If page loaded successfully, return. Control flow return back to the interrupted instruction.
+#endif
+          thread_current ()->exit_status = -1;
       kill (f);
       printf ("Page fault at %p: %s error %s page in %s context.\n",
               fault_addr, not_present ? "not present" : "rights violation",
