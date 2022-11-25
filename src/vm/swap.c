@@ -22,7 +22,7 @@ void swap_init(void)
 // Read the page from the swap slot
 void swap_in(struct page* page)
 {
-    puts("swap in!");
+    //puts("swap in!");
     lock_acquire(&swap_lock);
     ASSERT(bitmap_test(swap_bitmap, page->swap_index));
     for(int i=0; i<PAGE_BLOCKS; i++)
@@ -38,7 +38,7 @@ void swap_in(struct page* page)
 // Return whether the swap is successful
 bool swap_out(struct page* page)
 {
-    puts("swap out!");
+    //puts("swap out!");
     lock_acquire(&swap_lock);
     page->swap_index = bitmap_scan_and_flip(swap_bitmap, 0, 1, false);
     if (page->swap_index == BITMAP_ERROR)

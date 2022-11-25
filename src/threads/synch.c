@@ -194,6 +194,9 @@ lock_acquire (struct lock *lock)
 {
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
+  if (lock_held_by_current_thread(lock)) {
+    puts("GG");
+  }
   ASSERT (!lock_held_by_current_thread (lock));
 
   sema_down (&lock->semaphore);

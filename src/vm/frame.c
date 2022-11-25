@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include "threads/malloc.h"
 #include "threads/synch.h"
+#include "threads/thread.h"
 #include "userprog/pagedir.h"
 #include "vm/swap.h"
 
@@ -51,6 +52,7 @@ struct frame* frame_alloc(struct page* upage)
     frame->upage=upage; 
     hash_insert(&frame_table,&frame->frame_table_elem);
     frame->second_change = 1;
+    frame->owner=thread_current();
     return frame;
 }
 
@@ -67,7 +69,7 @@ void frame_free(struct frame* frame)
 // Return whether it succeed.
 bool frame_evict(void)
 {
-    lock_acquire(&frame_global_lock);
+    //lock_acquire(&frame_global_lock);
     // Second Chance (clock) algorithm
     struct hash_iterator it;
     hash_first(&it, &frame_table);
@@ -80,6 +82,6 @@ bool frame_evict(void)
     if (frame==NULL) return false;
     swap_out(frame->upage);
     frame_free(frame);
-    lock_release(&frame_global_lock);
+    //lock_release(&frame_global_lock);
     return true;
 }
