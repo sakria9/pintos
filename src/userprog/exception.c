@@ -149,16 +149,16 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-  /* To implement virtual memory, delete the rest of the function
-     body, and replace it with code that brings in the page to
-     which fault_addr refers. */
-  if (user)
-    {
 #ifdef VM
       struct thread* t=thread_current();
       if (page_fault_handler(&t->page_table, fault_addr, t->esp, write)) 
          return; // If page loaded successfully, return. Control flow return back to the interrupted instruction.
 #endif
+  /* To implement virtual memory, delete the rest of the function
+     body, and replace it with code that brings in the page to
+     which fault_addr refers. */
+  if (user)
+    {
           thread_current ()->exit_status = -1;
       kill (f);
       printf ("Page fault at %p: %s error %s page in %s context.\n",

@@ -9,6 +9,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "devices/timer.h"
+#include "userprog/exception.h"
 
 /* Programmable Interrupt Controller (PIC) registers.
    A PC has two PICs, called the master and slave PICs, with the
@@ -360,7 +361,10 @@ intr_handler (struct intr_frame *frame)
       in_external_intr = true;
       yield_on_return = false;
     } else {
-      thread_current()->esp = frame->esp;
+      //printf("esp: %p\n",frame->esp);
+
+      if ((frame->error_code & PF_U) != 0)
+        thread_current()->esp = frame->esp;
     }
 
   /* Invoke the interrupt's handler. */
