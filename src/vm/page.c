@@ -1,8 +1,10 @@
 #include "page.h"
 #include "bitmap.h"
+#include "filesys/file.h"
 #include "frame.h"
 #include "debug.h"
 #include "hash.h"
+#include "stddef.h"
 #include "threads/palloc.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
@@ -13,6 +15,7 @@
 #include "userprog/pagedir.h"
 #include "threads/thread.h"
 #include "vm/swap.h"
+#include <string.h>
 
 #define STACK_LIMIT 8388608 // 8MB
 
@@ -45,7 +48,7 @@ void page_table_destroy(struct hash* page_table)
 
 // Create a new page.
 // return NULL when failed
-struct page* page_create(struct hash *page_table, void *uaddr)
+struct page* page_create_stack(struct hash *page_table, void *uaddr)
 {
     struct page *page = malloc(sizeof(struct page));
     if (page==NULL) {
@@ -54,6 +57,7 @@ struct page* page_create(struct hash *page_table, void *uaddr)
     }
     page->uaddr = pg_round_down(uaddr);
     page->frame = frame_alloc(page);
+    page->file = NULL;
     if (page->frame==NULL) {
         free(page);
         return NULL;
@@ -65,6 +69,31 @@ struct page* page_create(struct hash *page_table, void *uaddr)
     memset(page->frame->kpage, 0, PGSIZE); // zero the page
     page->is_stack=true;
     page->swap_index=BITMAP_ERROR;
+    return page;
+}
+
+struct page* page_create_not_stack(struct hash *page_table, void *uaddr, bool writeable, struct file* file, off_t offset, size_t size) {
+    struct page *page = malloc(sizeof(struct page));
+    if (page == NULL) {
+        puts("No enough kernel memory!");
+        return NULL;
+    }
+    page->uaddr = pg_round_down(uaddr);
+    page->frame = NULL;
+
+    page->rw = writeable;
+    page->is_stack = false;
+
+    page->file = file;
+    page->file_offset = offset;
+    page->file_size = size;
+
+    page->swap_index = BITMAP_ERROR;
+
+    if (hash_insert(page_table, &page->page_table_elem) != NULL) {
+        puts("Page already exists! This should not happen!");
+        ASSERT(false);
+    }
     return page;
 }
 
@@ -88,9 +117,11 @@ void page_free(struct hash* page_table, struct page* page)
 extern struct lock frame_global_lock;
 bool page_fault_handler(struct hash *page_table, void *addr, void* esp, bool rw)
 {
-    //printf("page fault: %p\n",pg_round_down(addr));
-    if (addr==0 || !is_user_vaddr(addr)) return false;
-    //printf("loack_acquire: %p\n",addr);
+    printf("page fault: %p\n",pg_round_down(addr));
+    if (addr==0 || !is_user_vaddr(addr)) {
+        // puts("Invalid address!") ;
+        return false;
+    }
     lock_acquire(&frame_global_lock);
     //void *upage = pg_round_down(addr);
     struct page* page = page_find(page_table,addr);
@@ -99,47 +130,56 @@ bool page_fault_handler(struct hash *page_table, void *addr, void* esp, bool rw)
         //printf("%p %p\n",addr,esp);
         if (!addr_is_stack(addr, esp)) {
             // we continue only if it is a stack growth
-            //puts("Try to growth a non-stack memory"); 
-            //printf("loack_release: %p\n",addr);
+            // puts("Try to growth a non-stack memory"); 
+            // printf("lock_release: %p\n",addr);
             lock_release(&frame_global_lock);
             return false;
         } 
-        //puts("page fault: grow stack");
-        page = page_create(page_table, addr); 
+        // puts("page fault: grow stack");
+        page = page_create_stack(page_table, addr); 
         page->rw=true;
     } else {
         if (rw && !page->rw) {// write to a read-only page
-            //printf("loack_release: %p\n",addr);
+            // puts("Try to write to a read-only page");
+            //printf("lock_release: %p\n",addr);
             lock_release(&frame_global_lock);
             return false; 
         }
         if (!addr_is_stack(addr, esp) && page->is_stack) {// stack overflow
-            //printf("loack_release: %p\n",addr);
+            // puts("Stack overflow!");
+            // printf("lock_release: %p\n",addr);
             lock_release(&frame_global_lock);
             return false; 
         }
         if (page->swap_index!=BITMAP_ERROR) {
-            //puts("page fault: swap");
+            // puts("page fault: swap");
             page->frame=frame_alloc(page);
             swap_in(page);
+        } else if (page->file) {
+            // puts("page fault: file");
+            page->frame=frame_alloc(page);
+            ASSERT(page->frame);
+            size_t actual_read = file_read_at(page->file, page->frame->kpage, page->file_size, page->file_offset);
+            ASSERT(actual_read == page->file_size);
+            memset(page->frame->kpage+page->file_size, 0, PGSIZE-page->file_size);
         } else {
-            puts("page fault: file");
-            ASSERT(false);
-            // TODO: read from file
-            lock_release(&frame_global_lock);
-            return false;
+            // lazy create
+            ASSERT( page->frame == NULL );
+            page->frame = frame_alloc(page);
+            ASSERT(page->frame);
+            memset(page->frame->kpage, 0, PGSIZE); // zero the page
         }
     }
     struct thread *t = thread_current();
     if (!pagedir_set_page(t->pagedir, page->uaddr, page->frame->kpage, page->rw)) {
-        puts("Failed to add page into pagedir!");
+        // puts("Failed to add page into pagedir!");
         ASSERT(false);
         frame_free(page->frame);
         page_free(page_table,page);
         lock_release(&frame_global_lock);
         return false;
     }
-    //        printf("loack_release: %p\n",addr);
+    printf("lock_release: %p\n",addr);
     lock_release(&frame_global_lock);
     return true;
 }

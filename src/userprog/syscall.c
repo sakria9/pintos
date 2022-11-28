@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <syscall-nr.h>
 
+typedef int mapid_t;
 typedef int pid_t;          /* Corresponding to the documents */
 int syscall_arg_number[30]; /* The number of arguments of every syscall */
 void *syscall_func[30];     /* The function pointer of every syscall */
@@ -228,6 +229,18 @@ close (int fd)
   free (file_node);
 }
 
+static mapid_t
+mmap (int fd, void *addr)
+{
+  ASSERT(0);
+}
+
+static void
+munmap (mapid_t mapid)
+{
+  ASSERT(0);
+}
+
 static void
 syscall_handler (struct intr_frame *f UNUSED)
 {
@@ -315,7 +328,11 @@ syscall_init (void)
   syscall_func[SYS_CLOSE] = (void *)close;
 
   syscall_arg_number[SYS_MMAP] = 2;
+  syscall_func[SYS_MMAP] = (void *)mmap;
+
   syscall_arg_number[SYS_MUNMAP] = 1;
+  syscall_func[SYS_MUNMAP] = (void *)munmap;
+
   syscall_arg_number[SYS_CHDIR] = 1;
   syscall_arg_number[SYS_MKDIR] = 1;
   syscall_arg_number[SYS_READDIR] = 2;
