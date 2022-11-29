@@ -26,24 +26,82 @@ header-includes:
 > `struct` member, global or static variable, `typedef`, or
 > enumeration.  Identify the purpose of each in 25 words or less.
 
+```c
+// Supplemental page 
+struct page
+{
+  void *uaddr; // user virtual address for this page
+  struct frame *frame; // corresponding frame. if null, page is not in memory
+  bool rw;       // is writable
+  bool is_stack; // used to check stack growth
+
+  struct hash_elem page_table_elem; // for page_table
+
+  struct file *file;
+  off_t file_offset;
+  size_t file_size; // [file_offset, file_offset + file_size) is mapped to this
+                    // page
+};
+
+struct frame
+{
+  struct hash_elem frame_table_elem; // for frame_table
+  void *kpage; // kernel virtual address for this frame
+  struct page *upage; // corresponding page.
+  struct thread *owner; // thread that owns this frame
+
+  int second_change; // for Second Change algorithm
+};
+
+static struct hash frame_table; // The frame table
+struct lock frame_global_lock; // Ensure synchronization
+
+struct thread
+{
+    // ... Omit other members
+    struct hash page_table; // Supplemental page table
+    void *esp; // User stack pointer. Saved when interrupt occurs.
+    struct list mmap_list; // List of mmaped files
+    mapid_t next_mapid;
+};
+```
+
 ### ALGORITHMS
 
 > A2: In a few paragraphs, describe your code for accessing the data
 > stored in the SPT about a given page.
 
+Our SPT is a hash table.
+
+First, we find the page in the SPT. 
+
+If the page is in memory, i.e. `page->frame != NULL`, we can directly access the data in the page.
+
+If the page is in swap, we load the page from swap disk to memory, and then access the data in the page.
+
+If the page is a mmap and not in memory. We load the page from file to memory, and then access the data in the page.
+
 > A3: How does your code coordinate accessed and dirty bits between
 > kernel and user virtual addresses that alias a single frame, or
 > alternatively how do you avoid the issue?
+
+# TODO:
 
 ### SYNCHRONIZATION
 
 > A4: When two user processes both need a new frame at the same time,
 > how are races avoided?
 
+We use a global lock `frame_global_lock` to ensure synchronization.
+
+Before a thread operates on the frame table, it must acquire the lock. After the operation, it must release the lock. 
+
 ### RATIONALE
 
 > A5: Why did you choose the data structure(s) that you did for
 > representing virtual-to-physical mappings?
+
+We use a hash table. So that given a virtual address, we can find the corresponding physical address in O(1) time.
 
 ## PAGING TO AND FROM DISK
 
@@ -53,18 +111,35 @@ header-includes:
 > `struct` member, global or static variable, `typedef`, or
 > enumeration.  Identify the purpose of each in 25 words or less.
 
+```c
+struct page
+{
+    // ... Omit other members
+  size_t swap_index; // where is this page in swap disk. when this page is not
+                     // in swap, swap_index=BITMAP_ERROR
+};
+```
+
 ### ALGORITHMS
 
 > B2: When a frame is required but none is free, some frame must be
 > evicted.  Describe your code for choosing a frame to evict.
 
+We use Second Change Algorithm to choose a frame.
+
+All pages are considered in a round robin matter, but one page be relaced only when visit it at second time. When accessing a page, the flag will be reset.
+
 > B3: When a process P obtains a frame that was previously used by a
 > process Q, how do you adjust the page table (and any other data
 > structures) to reflect the frame Q no longer has?
 
+When a frame is not belong to a process Q, we use ``frame_free`` to clean this frame, and set ``page->frame = NULL``
+
 > B4: Explain your heuristic for deciding whether a page fault for an
 > invalid virtual address should cause the stack to be extended into
 > the page that faulted.
+
+If the address is not lower than PYHS_BASE and not higher than ``esp-32``, and the stack is not larger than 8MB,  we think it is a valid stack address, and extend the stack. Otherwise it not cause a stack growth.
 
 ### SYNCHRONIZATION
 
@@ -73,10 +148,18 @@ header-includes:
 > textbook for an explanation of the necessary conditions for
 > deadlock.)
 
+# TODO
+
 > B6: A page fault in process P can cause another process Q's frame
 > to be evicted.  How do you ensure that Q cannot access or modify
 > the page during the eviction process?  How do you avoid a race
 > between P evicting Q's frame and Q faulting the page back in?
+
+We use a global lock `frame_global_lock` to ensure synchronization.
+
+Before a thread operates on the frame table, it must acquire the lock. After the operation, it must release the lock. 
+
+So P and Q won't have a race.
 
 > B7: Suppose a page fault in process P causes a page to be read from
 > the file system or swap.  How do you ensure that a second process Q
