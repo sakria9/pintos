@@ -1,19 +1,22 @@
 #include "userprog/syscall.h"
+#include "bitmap.h"
 #include "devices/input.h"
 #include "devices/shutdown.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "stddef.h"
 #include "threads/interrupt.h"
 #include "threads/malloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "userprog/pagedir.h"
 #include "userprog/process.h"
+#include "vm/frame.h"
+#include "vm/page.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <syscall-nr.h>
 
-typedef int mapid_t;
-typedef int pid_t;          /* Corresponding to the documents */
 int syscall_arg_number[30]; /* The number of arguments of every syscall */
 void *syscall_func[30];     /* The function pointer of every syscall */
 
@@ -232,13 +235,77 @@ close (int fd)
 static mapid_t
 mmap (int fd, void *addr)
 {
-  ASSERT(0);
+  if (fd < 2 || addr == NULL || pg_ofs (addr) != 0)
+    return -1;
+  struct file_node *file_node
+      = get_file_node_by_fd (&thread_current ()->file_list, fd);
+  if (!file_node)
+    return -1;
+
+  ASSERT (file_node->file != NULL);
+
+  size_t file_size = file_length (file_node->file);
+  if (file_size == 0)
+    return -1;
+
+  struct hash *page_table = &thread_current ()->page_table;
+  for (size_t offset = 0; offset < file_size; offset += PGSIZE)
+    if (page_find (page_table, addr + offset) != NULL)
+      return -1;
+
+  struct mmap_node *mmap_node = malloc (sizeof (struct mmap_node));
+  mmap_node->file = file_reopen (file_node->file);
+  mmap_node->addr = addr;
+
+  for (size_t offset = 0; offset < file_size; offset += PGSIZE)
+    {
+      size_t page_read_bytes
+          = file_size - offset < PGSIZE ? file_size - offset : PGSIZE;
+      struct page *page
+          = page_create_not_stack (page_table, addr + offset, 1,
+                                   mmap_node->file, offset, page_read_bytes);
+      if (page == NULL)
+        {
+          for (size_t i = 0; i < offset; i += PGSIZE)
+            {
+              struct page *page = page_find (page_table, addr + i);
+              page_table_free_page (page_table, page);
+            }
+          free (mmap_node);
+          return -1;
+        }
+    }
+  mmap_node->mapid = thread_current ()->next_mapid++;
+  list_push_back (&thread_current ()->mmap_list, &mmap_node->elem);
+  return mmap_node->mapid;
 }
 
 static void
 munmap (mapid_t mapid)
 {
-  ASSERT(0);
+  struct thread *t = thread_current ();
+  struct list *mmap_list = &t->mmap_list;
+  struct list_elem *e;
+  struct mmap_node *mmap_node = NULL;
+  for (e = list_begin (mmap_list); e != list_end (mmap_list);
+       e = list_next (e))
+    if (list_entry (e, struct mmap_node, elem)->mapid == mapid)
+      {
+        mmap_node = list_entry (e, struct mmap_node, elem);
+        break;
+      }
+  if (mmap_node == NULL)
+    exit (-1);
+  size_t file_size = file_length (mmap_node->file);
+  for (size_t offset = 0; offset < file_size; offset += PGSIZE)
+    {
+      struct page *page = page_find (&thread_current ()->page_table,
+                                     mmap_node->addr + offset);
+      page_table_free_page (&t->page_table, page);
+    }
+  file_close (mmap_node->file);
+  list_remove (&mmap_node->elem);
+  free (mmap_node);
 }
 
 static void

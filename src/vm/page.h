@@ -26,5 +26,5 @@ void page_table_destroy(struct hash*);
 struct page* page_create_stack(struct hash *page_table, void *uaddr);
 struct page* page_create_not_stack(struct hash *page_table, void *uaddr, bool writeable, struct file* file, off_t offset, size_t size);
 struct page* page_find(struct hash *page_table, void *uaddr);
-void page_free(struct hash*, struct page*);
+void page_table_free_page(struct hash*, struct page*);
 bool page_fault_handler(struct hash *page_table, void *uaddr, void* esp,bool read_only);
