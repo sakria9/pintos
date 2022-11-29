@@ -17,3 +17,4 @@ void frame_table_init(void);
 struct frame* frame_alloc(struct page*);
 void frame_free(struct frame*);
 bool frame_evict(void);
+void frame_clear(struct frame* frame);

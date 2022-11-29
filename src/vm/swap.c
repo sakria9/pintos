@@ -49,6 +49,7 @@ bool swap_out(struct page* page)
     for(int i=0; i<PAGE_BLOCKS; i++) {
         block_write(swap_device, page->swap_index*PAGE_BLOCKS+i, page->frame->kpage+i*BLOCK_SECTOR_SIZE);
     }
+    page->frame=NULL;
     lock_release(&swap_lock);
     return true;
 }

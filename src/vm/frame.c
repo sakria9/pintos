@@ -64,6 +64,13 @@ void frame_free(struct frame* frame)
     free(frame);
 }
 
+void frame_clear(struct frame* frame)
+{
+    hash_delete(&frame_table, &frame->frame_table_elem);
+    palloc_free_page(frame->kpage);
+    free(frame);
+}
+
 
 // Evit a page
 // Return whether it succeed.

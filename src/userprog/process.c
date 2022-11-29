@@ -218,6 +218,7 @@ process_exit (void)
     }
 
 #ifdef VM
+  
   page_table_destroy(&cur->page_table);
 #endif
 
