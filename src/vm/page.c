@@ -48,9 +48,11 @@ page_table_init (struct hash *page_table)
 }
 // extern struct hash frame_table;
 
+extern struct lock frame_global_lock;
 void
 page_table_destroy (struct hash *page_table)
 {
+  lock_acquire(&frame_global_lock);
   while (page_table->elem_cnt)
     {
       struct hash_iterator it;
@@ -60,8 +62,10 @@ page_table_destroy (struct hash *page_table)
           = hash_entry (hash_cur (&it), struct page, page_table_elem);
       page_table_free_page (page_table, page);
     }
+  lock_release(&frame_global_lock);
   hash_destroy (page_table, NULL);
 }
+
 
 // Create a new page.
 // return NULL when failed
