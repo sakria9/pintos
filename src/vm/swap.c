@@ -1,5 +1,6 @@
 #include "swap.h"
 #include "devices/block.h"
+#include "filesys/file.h"
 #include "frame.h"
 #include "page.h"
 #include "threads/synch.h"
@@ -37,27 +38,40 @@ swap_in (struct page *page)
   lock_release (&swap_lock);
 }
 
-// Write the page to the swap slot
+// Write the page to the swap slot if it is ordinary page
+// Writeback to file if it is a mmap page, swap_index is BITMAP_ERROR
 // Return whether the swap is successful
 bool
 swap_out (struct page *page)
 {
   // puts("swap out!");
-  lock_acquire (&swap_lock);
-  page->swap_index = bitmap_scan_and_flip (swap_bitmap, 0, 1, false);
-  if (page->swap_index == BITMAP_ERROR)
+  if (page->file)
     {
+      ASSERT (page->swap_index == BITMAP_ERROR);
+      ASSERT (page->frame && page->frame->kpage);
+      file_write_at (page->file, page->frame->kpage, page->file_size,
+                     page->file_offset);
+      page->frame = NULL;
+      return true;
+    }
+  else
+    {
+      lock_acquire (&swap_lock);
+      page->swap_index = bitmap_scan_and_flip (swap_bitmap, 0, 1, false);
+      if (page->swap_index == BITMAP_ERROR)
+        {
+          lock_release (&swap_lock);
+          return false;
+        }
+      for (int i = 0; i < PAGE_BLOCKS; i++)
+        {
+          block_write (swap_device, page->swap_index * PAGE_BLOCKS + i,
+                       page->frame->kpage + i * BLOCK_SECTOR_SIZE);
+        }
+      page->frame = NULL;
       lock_release (&swap_lock);
-      return false;
+      return true;
     }
-  for (int i = 0; i < PAGE_BLOCKS; i++)
-    {
-      block_write (swap_device, page->swap_index * PAGE_BLOCKS + i,
-                   page->frame->kpage + i * BLOCK_SECTOR_SIZE);
-    }
-  page->frame = NULL;
-  lock_release (&swap_lock);
-  return true;
 }
 
 // Free the swap slot
