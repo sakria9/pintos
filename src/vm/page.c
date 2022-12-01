@@ -162,7 +162,7 @@ page_table_free_page (struct hash *page_table, struct page *page)
   else
     {
       // mmap page
-      if (page->frame != NULL)
+      if (page->frame != NULL && pagedir_is_dirty(page->frame->owner->pagedir, page->uaddr))
         {
           ASSERT (page->swap_index == BITMAP_ERROR);
           file_write_at (page->file, page->uaddr, page->file_size,

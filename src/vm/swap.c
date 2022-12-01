@@ -5,6 +5,7 @@
 #include "page.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "userprog/pagedir.h"
 #include <bitmap.h>
 
 #define PAGE_BLOCKS (PGSIZE / BLOCK_SECTOR_SIZE)
@@ -49,8 +50,12 @@ swap_out (struct page *page)
     {
       ASSERT (page->swap_index == BITMAP_ERROR);
       ASSERT (page->frame && page->frame->kpage);
-      file_write_at (page->file, page->frame->kpage, page->file_size,
-                     page->file_offset);
+      if (pagedir_is_dirty (page->frame->owner->pagedir, page->uaddr))
+        {
+          file_write_at (page->file, page->frame->kpage, page->file_size,
+                         page->file_offset);
+          pagedir_set_dirty (page->frame->owner->pagedir, page->uaddr, false);
+        }
       page->frame = NULL;
       return true;
     }
