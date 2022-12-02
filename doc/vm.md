@@ -1,5 +1,5 @@
 ---
-title: "PROJECT 2: USER PROGRAMS\\newline DESIGN DOCUMENT"
+title: "PROJECT 3: VIRTUAL MEMORY\\newline DESIGN DOCUMENT"
 author:
 - Zhang Yichi <zhangych6@shanghaitech.edu.cn>
 - Hu Aibo <huab@shanghaitech.edu.cn>
@@ -36,11 +36,6 @@ struct page
   bool is_stack; // used to check stack growth
 
   struct hash_elem page_table_elem; // for page_table
-
-  struct file *file;
-  off_t file_offset;
-  size_t file_size; // [file_offset, file_offset + file_size) is mapped to this
-                    // page
 };
 
 struct frame
@@ -61,8 +56,6 @@ struct thread
     // ... Omit other members
     struct hash page_table; // Supplemental page table
     void *esp; // User stack pointer. Saved when interrupt occurs.
-    struct list mmap_list; // List of mmaped files
-    mapid_t next_mapid;
 };
 ```
 
@@ -85,7 +78,7 @@ If the page is a mmap and not in memory. We load the page from file to memory, a
 > kernel and user virtual addresses that alias a single frame, or
 > alternatively how do you avoid the issue?
 
-# TODO:
+In our implementation, we do not allow aliasing. We avoid accessing the memory using kernel virtual address. Kernel virtual address is only used to initialize the page.
 
 ### SYNCHRONIZATION
 
@@ -101,7 +94,7 @@ Before a thread operates on the frame table, it must acquire the lock. After the
 > A5: Why did you choose the data structure(s) that you did for
 > representing virtual-to-physical mappings?
 
-We use a hash table. So that given a virtual address, we can find the corresponding physical address in O(1) time.
+We use a hash table. So that given a virtual address, we can find the corresponding physical address in $O(1)$ time.
 
 ## PAGING TO AND FROM DISK
 
@@ -148,7 +141,7 @@ If the address is not lower than PYHS_BASE and not higher than ``esp-32``, and t
 > textbook for an explanation of the necessary conditions for
 > deadlock.)
 
-# TODO
+TODO:
 
 > B6: A page fault in process P can cause another process Q's frame
 > to be evicted.  How do you ensure that Q cannot access or modify
@@ -178,7 +171,9 @@ So Q will wait until P finishes reading file.
 > into physical memory, or do you use some other design?  How do you
 > gracefully handle attempted accesses to invalid virtual addresses?
 
-# TODO:
+We use the page fault to bring in pages.
+When a page fault occurs, in the interrupt handler, we first check if the page is in the SPT. If it is, we load the page from file or swap disk to memory. Then we return to the interrupted instruction.
+Otherwise, we think user gives syscall with invalid virtual address.
 
 ### RATIONALE
 
@@ -189,6 +184,8 @@ So Q will wait until P finishes reading file.
 > where your design falls along this continuum and why you chose to
 > design it this way.
 
+TODO:
+
 ## MEMORY MAPPED FILES
 
 ### DATA STRUCTURES
@@ -197,14 +194,42 @@ So Q will wait until P finishes reading file.
 > `struct` member, global or static variable, `typedef`, or
 > enumeration.  Identify the purpose of each in 25 words or less.
 
+```c
+struct thread
+{
+    // ... Omit other members
+    struct list mmap_list; // List of mmaped files
+    mapid_t next_mapid;
+};
+
+struct page
+{
+  // ... Omit other members
+  struct file *file; // Indicate whether the page is a mmap page
+  off_t file_offset;
+  size_t file_size; // [file_offset, file_offset + file_size) is mapped to this
+                    // page
+};
+```
+
 ### ALGORITHMS
 
 > C2: Describe how memory mapped files integrate into your virtual
 > memory subsystem.  Explain how the page fault and eviction
 > processes differ between swap pages and other pages.
 
+In lazy creation, we check `file` attribute to determine whether the page is a mmap page.
+If yes, we use `fread` to load the content of the file and use `memset` to set the rest of the page to zero.
+
+In swap, we check `file` attribute to determine whether the page is a mmap page.
+If yes, instead of write it to the swap disk. We write it directly to the file it maps.
+So the `swap_index` of a mmap page is always `BITMAP_ERROR`.
+
 > C3: Explain how you determine whether a new file mapping overlaps
 > any existing segment.
+
+We use a for loop to check every address.
+If it overlaps a existing page in spte, mmap syscall is terminated.
 
 ### RATIONALE
 
@@ -214,3 +239,8 @@ So Q will wait until P finishes reading file.
 > that much of their implementation can be shared.  Explain why your
 > implementation either does or does not share much of the code for
 > the two situations.
+
+We implement stack growth and swap first. Adding mmap doesn't modify the code much.
+Because in mmap syscall, we just create many mmap pages in spte without reading the content of the file.
+Mmap pages share the same page fault handler with the stack growth. The only thing we need to do is to add some if else.
+Swap is similar.
