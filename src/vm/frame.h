@@ -13,6 +13,7 @@ struct frame
   int second_change; // for Second Change algorithm
 };
 
+extern struct lock frame_global_lock;
 void frame_table_init (void);
 struct frame *frame_alloc (struct page *);
 void frame_free (struct frame *);
