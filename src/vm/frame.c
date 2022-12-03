@@ -95,6 +95,12 @@ frame_evict (void)
     {
       frame = hash_entry (hash_cur (&it), struct frame, frame_table_elem);
       if (frame->owner->tid==0) continue;
+      if (pagedir_is_accessed(frame->owner->pagedir, frame->upage->uaddr))
+      {
+        pagedir_set_accessed(frame->owner->pagedir, frame->upage->uaddr, false);
+        continue;
+      }
+      break;
       if (frame->second_change == 0)
         break;
       frame->second_change = 0;
