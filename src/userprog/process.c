@@ -188,10 +188,6 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   bool success = (cur->tid == 1) || cur->pa_link->success;
-
-  if (cur->pagedir && success)
-      printf ("%s: exit(%d)\n", cur->name, cur->exit_status);
-
   if (cur->tid != 1)
     {
       lock_acquire (&cur->pa_link->lock);
@@ -222,14 +218,8 @@ process_exit (void)
     }
 
 #ifdef VM
-  page_table_destroy (&cur->page_table);
-  for (struct list_elem *e = list_begin (&cur->mmap_list);
-       e != list_end (&cur->mmap_list);)
-    {
-      struct mmap_node *mmap_node = list_entry (e, struct mmap_node, elem);
-      e = list_next (e);
-      free (mmap_node);
-    }
+  
+  page_table_destroy(&cur->page_table);
 #endif
 
   uint32_t *pd;
@@ -239,6 +229,10 @@ process_exit (void)
   pd = cur->pagedir;
   if (pd != NULL)
     {
+      if (success)
+        {
+          printf ("%s: exit(%d)\n", cur->name, cur->exit_status);
+        }
       /* Correct ordering here is crucial.  We must set
          cur->pagedir to NULL before switching page directories,
          so that a timer interrupt can't switch back to the
@@ -606,7 +600,7 @@ setup_stack (void **esp, const char *argument_string)
     if (success)
       success = setup_arguments (esp, argument_string);
     else {
-      page_table_free_page(&cur->page_table, page);
+      page_free(&cur->page_table, page);
     }
   } else {
     puts("Page allocating failed");

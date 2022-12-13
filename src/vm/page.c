@@ -41,20 +41,23 @@ void page_table_init(struct hash* page_table){
     hash_init(page_table, page_hash, page_less, NULL);
 }
 //extern struct hash frame_table;
-
-void
-page_table_destroy (struct hash *page_table)
+void page_table_destroy(struct hash* page_table)
 {
-  while (page_table->elem_cnt)
-    {
-      struct hash_iterator it;
-      hash_first (&it, page_table);
-      hash_next (&it);
-      struct page *page
-          = hash_entry (hash_cur (&it), struct page, page_table_elem);
-      page_table_free_page (page_table, page);
+    struct hash_iterator it;
+    hash_first(&it, page_table);
+    struct page* page=NULL;
+    while(hash_next(&it)) {
+        page = hash_entry(hash_cur(&it), struct page, page_table_elem); 
+        if (page->swap_index!=BITMAP_ERROR) {
+            swap_free(page->swap_index);
+        } else {
+            if (page->frame!=NULL) {
+                frame_free(page->frame);
+            }
+        }
+
     }
-  hash_destroy (page_table, NULL);
+    hash_destroy(page_table, NULL);
 }
 
 // Create a new page.
@@ -120,48 +123,11 @@ struct page* page_find(struct hash *page_table, void *uaddr)
     return hash_entry(e,struct page,page_table_elem);
 }
 
-void
-page_table_free_page (struct hash *page_table, struct page *page)
+void page_free(struct hash* page_table, struct page* page)
 {
-  if (page->file == NULL)
-    {
-      // ordinary page
-      if (page->frame == NULL)
-        {
-          if (page->swap_index != BITMAP_ERROR)
-            swap_free (page->swap_index);
-        }
-      else
-        {
-          ASSERT (page->swap_index == BITMAP_ERROR);
-          frame_free (page->frame);
-          page->frame = NULL;
-        }
-    }
-  else
-    {
-      // mmap page
-      if (page->frame == NULL)
-        {
-          if (page->swap_index != BITMAP_ERROR)
-            {
-              // TODO: read back
-              ASSERT (0);
-            }
-        }
-      else
-        {
-          ASSERT (page->swap_index == BITMAP_ERROR);
-          file_write_at (page->file, page->uaddr, page->file_size,
-                         page->file_offset);
-          frame_free (page->frame);
-          page->frame = NULL;
-        }
-    }
-  hash_delete (page_table, &page->page_table_elem);
-  free (page);
+    hash_delete(page_table, &page->page_table_elem);
+    free(page);
 }
-
 extern struct lock frame_global_lock;
 bool page_fault_handler(struct hash *page_table, void *addr, void* esp, bool rw)
 {
@@ -226,7 +192,8 @@ bool page_fault_handler(struct hash *page_table, void *addr, void* esp, bool rw)
     if (!pagedir_set_page(t->pagedir, page->uaddr, page->frame->kpage, page->rw)) {
         // puts("Failed to add page into pagedir!");
         ASSERT(false);
-        page_table_free_page(page_table,page);
+        frame_free(page->frame);
+        page_free(page_table,page);
         lock_release(&frame_global_lock);
         return false;
     }

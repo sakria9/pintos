@@ -8,7 +8,6 @@
 #include "hash.h"
 #include "malloc.h"
 #include "stdlib.h"
-#include "userprog/syscall.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -113,8 +112,6 @@ struct thread
 #ifdef VM
     struct hash page_table; // Supplemental page table
     void *esp; // User stack pointer. Saved when interrupt occurs.
-    struct list mmap_list; // List of mmaped files
-    mapid_t next_mapid;
 #endif
 
     /* Owned by thread.c. */
@@ -159,15 +156,6 @@ struct file_node
   {
     int fd;                             /* File descriptor. */
     struct file *file;                  /* File. */
-    struct list_elem elem;              /* List element. */
-  };
-
-/* Element of mmap_list in thread */
-struct mmap_node
-  {
-    mapid_t mapid;                      /* Mmap id. */
-    struct file *file;                  /* File. */
-    void *addr;                         /* Mapped address. */
     struct list_elem elem;              /* List element. */
   };
 
