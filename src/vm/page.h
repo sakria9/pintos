@@ -4,11 +4,10 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-// Supplemental page 
 struct page
 {
   void *uaddr; // user virtual address for this page
-  struct frame *frame; // corresponding frame. If NULL, page is not in memory
+  struct frame *frame;
   bool rw;       // is writable
   bool is_stack; // used to check stack growth
 

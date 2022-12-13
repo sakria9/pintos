@@ -6,9 +6,9 @@
 struct frame
 {
   struct hash_elem frame_table_elem; // for frame_table
-  void *kpage; // kernel virtual address for this frame
-  struct page *upage; // corresponding page.
-  struct thread *owner; // thread that owns this frame
+  void *kpage;
+  struct page *upage;
+  struct thread *owner;
 
   int second_change; // for Second Change algorithm
 };

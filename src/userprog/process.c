@@ -514,7 +514,6 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
   /* It's okay. */
   return true;
 }
-extern struct lock frame_global_lock;
 
 /* Loads a segment starting at offset OFS in FILE at address
    UPAGE.  In total, READ_BYTES + ZERO_BYTES bytes of virtual
@@ -551,19 +550,15 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 #ifdef VM
       if (page_read_bytes == 0)
         {
-          lock_acquire(&frame_global_lock);
           struct page *page = page_create_not_stack (page_table, upage,
                                                      writable, NULL, 0, 0);
-          lock_release(&frame_global_lock);
           ASSERT (page);
         }
       else
         {
-          lock_acquire(&frame_global_lock);
           struct page *page = page_create_not_stack (
               page_table, upage, writable, file, ofs, page_read_bytes);
           ofs += page_read_bytes;
-          lock_release(&frame_global_lock);
           ASSERT (page);
         }
 #else
