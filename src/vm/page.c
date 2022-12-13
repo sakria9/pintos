@@ -89,8 +89,7 @@ extern struct lock frame_global_lock;
 bool page_fault_handler(struct hash *page_table, void *addr, void* esp, bool rw)
 {
     //printf("page fault: %p\n",pg_round_down(addr));
-    if (addr==0 || !is_user_vaddr(addr)) return false;
-    //printf("loack_acquire: %p\n",addr);
+    if (!is_user_vaddr(addr)) return false;
     lock_acquire(&frame_global_lock);
     //void *upage = pg_round_down(addr);
     struct page* page = page_find(page_table,addr);
@@ -100,7 +99,6 @@ bool page_fault_handler(struct hash *page_table, void *addr, void* esp, bool rw)
         if (!addr_is_stack(addr, esp)) {
             // we continue only if it is a stack growth
             //puts("Try to growth a non-stack memory"); 
-            //printf("loack_release: %p\n",addr);
             lock_release(&frame_global_lock);
             return false;
         } 
@@ -109,18 +107,15 @@ bool page_fault_handler(struct hash *page_table, void *addr, void* esp, bool rw)
         page->rw=true;
     } else {
         if (rw && !page->rw) {// write to a read-only page
-            //printf("loack_release: %p\n",addr);
             lock_release(&frame_global_lock);
             return false; 
         }
         if (!addr_is_stack(addr, esp) && page->is_stack) {// stack overflow
-            //printf("loack_release: %p\n",addr);
             lock_release(&frame_global_lock);
             return false; 
         }
         if (page->swap_index!=BITMAP_ERROR) {
             //puts("page fault: swap");
-            page->frame=frame_alloc(page);
             swap_in(page);
         } else {
             puts("page fault: file");
@@ -139,7 +134,6 @@ bool page_fault_handler(struct hash *page_table, void *addr, void* esp, bool rw)
         lock_release(&frame_global_lock);
         return false;
     }
-    //        printf("loack_release: %p\n",addr);
     lock_release(&frame_global_lock);
     return true;
 }
