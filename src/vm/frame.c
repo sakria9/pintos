@@ -94,7 +94,6 @@ frame_evict (void)
   while (hash_next (&it))
     {
       frame = hash_entry (hash_cur (&it), struct frame, frame_table_elem);
-      if (frame->owner->tid==0) continue;
       if (frame->second_change == 0)
         break;
       frame->second_change = 0;
