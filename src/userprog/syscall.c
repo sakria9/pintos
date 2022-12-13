@@ -7,7 +7,6 @@
 #include "stddef.h"
 #include "threads/interrupt.h"
 #include "threads/malloc.h"
-#include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "userprog/pagedir.h"
@@ -249,14 +248,10 @@ mmap (int fd, void *addr)
   if (file_size == 0)
     return -1;
 
-  lock_acquire(&frame_global_lock);
-
   struct hash *page_table = &thread_current ()->page_table;
   for (size_t offset = 0; offset < file_size; offset += PGSIZE)
-    if (page_find (page_table, addr + offset) != NULL) {
-      lock_release(&frame_global_lock);
+    if (page_find (page_table, addr + offset) != NULL)
       return -1;
-    }
 
   struct mmap_node *mmap_node = malloc (sizeof (struct mmap_node));
   mmap_node->file = file_reopen (file_node->file);
@@ -277,20 +272,17 @@ mmap (int fd, void *addr)
               page_table_free_page (page_table, page);
             }
           free (mmap_node);
-          lock_release(&frame_global_lock);
           return -1;
         }
     }
   mmap_node->mapid = thread_current ()->next_mapid++;
   list_push_back (&thread_current ()->mmap_list, &mmap_node->elem);
-  lock_release(&frame_global_lock);
   return mmap_node->mapid;
 }
 
 static void
 munmap (mapid_t mapid)
 {
-  lock_acquire(&frame_global_lock);
   struct thread *t = thread_current ();
   struct list *mmap_list = &t->mmap_list;
   struct list_elem *e;
@@ -314,7 +306,6 @@ munmap (mapid_t mapid)
   file_close (mmap_node->file);
   list_remove (&mmap_node->elem);
   free (mmap_node);
-  lock_release(&frame_global_lock);
 }
 
 static void
