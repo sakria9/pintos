@@ -5,9 +5,6 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
-#include "hash.h"
-#include "malloc.h"
-#include "stdlib.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -107,11 +104,6 @@ struct thread
     struct list child_list;             /* List of child processes. Node type is pa_ch_link */
     struct pa_ch_link *pa_link;
     struct file* exec_file;
-#endif
-
-#ifdef VM
-    struct hash page_table; // Supplemental page table
-    void *esp; // User stack pointer. Saved when interrupt occurs.
 #endif
 
     /* Owned by thread.c. */

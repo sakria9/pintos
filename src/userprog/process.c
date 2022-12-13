@@ -21,10 +21,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef VM
-#include "vm/page.h"
-#include "vm/frame.h"
-#endif
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -117,10 +113,6 @@ start_process (void *file_name_)
   cur->pa_link = *(void **)(file_name + len + 1);
   cur->pa_link->child = cur;
   cur->pa_link->child_tid = cur->tid;
-
-#ifdef VM
-  page_table_init(&cur->page_table);
-#endif
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -216,10 +208,6 @@ process_exit (void)
       file_close (f->file);
       free (f);
     }
-
-#ifdef VM
-  page_table_destroy(&cur->page_table);
-#endif
 
   uint32_t *pd;
 
@@ -583,21 +571,15 @@ setup_stack (void **esp, const char *argument_string)
   uint8_t *kpage;
   bool success = false;
 
-  struct thread* cur = thread_current();  
-  struct page *page = page_create(&cur->page_table, ((uint8_t *)PHYS_BASE) - PGSIZE);
-  page->rw=true;
-  kpage=page->frame->kpage;
+  kpage = palloc_get_page (PAL_USER | PAL_ZERO); //TODO: replace it with page manager.
   if (kpage != NULL)
-  {
-    success = install_page (((uint8_t *)PHYS_BASE) - PGSIZE, kpage, true);
-    if (success)
-      success = setup_arguments (esp, argument_string);
-    else {
-      page_free(&cur->page_table, page);
+    {
+      success = install_page (((uint8_t *)PHYS_BASE) - PGSIZE, kpage, true);
+      if (success)
+        success = setup_arguments (esp, argument_string);
+      else
+        palloc_free_page (kpage);
     }
-  } else {
-    puts("Page allocating failed");
-  }
   return success;
 }
 
