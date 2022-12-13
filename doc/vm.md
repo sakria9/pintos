@@ -141,7 +141,7 @@ If the address is not lower than PYHS_BASE and not higher than ``esp-32``, and t
 > textbook for an explanation of the necessary conditions for
 > deadlock.)
 
-"Wait while holding" is a necessary condition for deadlock. We use only one lock, so we do not meet this condition. Therefore, we do not have deadlock.
+TODO:
 
 > B6: A page fault in process P can cause another process Q's frame
 > to be evicted.  How do you ensure that Q cannot access or modify
@@ -184,7 +184,7 @@ Otherwise, we think user gives syscall with invalid virtual address.
 > where your design falls along this continuum and why you chose to
 > design it this way.
 
-We use a single lock. Because Pintos is a single-core system.
+TODO:
 
 ## MEMORY MAPPED FILES
 
