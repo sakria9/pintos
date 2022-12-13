@@ -22,8 +22,8 @@
 #include <stdlib.h>
 #include <string.h>
 #ifdef VM
-#include "vm/frame.h"
 #include "vm/page.h"
+#include "vm/frame.h"
 #endif
 
 static thread_func start_process NO_RETURN;
@@ -119,7 +119,7 @@ start_process (void *file_name_)
   cur->pa_link->child_tid = cur->tid;
 
 #ifdef VM
-  page_table_init (&cur->page_table);
+  page_table_init(&cur->page_table);
 #endif
 
   /* Initialize interrupt frame and load executable. */
@@ -190,7 +190,7 @@ process_exit (void)
   bool success = (cur->tid == 1) || cur->pa_link->success;
 
   if (cur->pagedir && success)
-    printf ("%s: exit(%d)\n", cur->name, cur->exit_status);
+      printf ("%s: exit(%d)\n", cur->name, cur->exit_status);
 
   if (cur->tid != 1)
     {
@@ -362,9 +362,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
   for (; file_name[p] != 0 && file_name[p] != ' '; p++)
     ;
   if (file_name[p] == 0)
-    p = -1;
+      p = -1;
   else
-    ((char *)file_name)[p] = '\0';
+      ((char *)file_name)[p] = '\0';
 
   /* Open executable file. */
   file = filesys_open (file_name);
@@ -380,7 +380,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   // restore the filename
   if (p != -1)
-    ((char *)file_name)[p] = ' ';
+      ((char *)file_name)[p] = ' ';
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -538,7 +538,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (ofs % PGSIZE == 0);
 
   file_seek (file, ofs);
-  struct hash *page_table = &thread_current ()->page_table;
+  struct hash* page_table = &thread_current()->page_table;
   while (read_bytes > 0 || zero_bytes > 0)
     {
       /* Calculate how to fill this page.
@@ -548,27 +548,21 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
 #ifdef VM
-      if (page_read_bytes == 0)
-        {
-          struct page *page = page_create_not_stack (page_table, upage,
-                                                     writable, NULL, 0, 0);
-          ASSERT (page);
-        }
-      else
-        {
-          struct page *page = page_create_not_stack (
-              page_table, upage, writable, file, ofs, page_read_bytes);
-          ofs += page_read_bytes;
-          ASSERT (page);
-        }
+      if (page_read_bytes == 0)  {
+        struct page *page = page_create_not_stack(page_table, upage, writable, NULL, 0, 0);
+        ASSERT(page);
+      }
+      else {
+        struct page *page = page_create_not_stack(page_table, upage, writable, file, ofs, page_read_bytes);
+        ofs += page_read_bytes;
+        ASSERT(page);
+      }
 #else
-      uint8_t *kpage
-          = palloc_get_page (PAL_USER); // TODO: replace it with page manager.
-      if (kpage == NULL)
-        {
-          printf ("User pool empty\n");
-          return false;
-        }
+      uint8_t *kpage = palloc_get_page (PAL_USER);//TODO: replace it with page manager.
+      if (kpage == NULL) {
+        printf("User pool empty\n");
+        return false;
+      }
 
       /* Load this page. */
       if (file_read (file, kpage, page_read_bytes) != (int)page_read_bytes)
@@ -602,25 +596,21 @@ setup_stack (void **esp, const char *argument_string)
   uint8_t *kpage;
   bool success = false;
 
-  struct thread *cur = thread_current ();
-  struct page *page
-      = page_create_stack (&cur->page_table, ((uint8_t *)PHYS_BASE) - PGSIZE);
-  page->rw = true;
-  kpage = page->frame->kpage;
+  struct thread* cur = thread_current();  
+  struct page *page = page_create_stack(&cur->page_table, ((uint8_t *)PHYS_BASE) - PGSIZE);
+  page->rw=true;
+  kpage=page->frame->kpage;
   if (kpage != NULL)
-    {
-      success = install_page (((uint8_t *)PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
-        success = setup_arguments (esp, argument_string);
-      else
-        {
-          page_table_free_page (&cur->page_table, page);
-        }
+  {
+    success = install_page (((uint8_t *)PHYS_BASE) - PGSIZE, kpage, true);
+    if (success)
+      success = setup_arguments (esp, argument_string);
+    else {
+      page_table_free_page(&cur->page_table, page);
     }
-  else
-    {
-      puts ("Page allocating failed");
-    }
+  } else {
+    puts("Page allocating failed");
+  }
   return success;
 }
 
