@@ -355,9 +355,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
   for (; file_name[p] != 0 && file_name[p] != ' '; p++)
     ;
   if (file_name[p] == 0)
+    {
       p = -1;
+    }
   else
+    {
       ((char *)file_name)[p] = '\0';
+    }
 
   /* Open executable file. */
   file = filesys_open (file_name);
@@ -373,7 +377,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   // restore the filename
   if (p != -1)
+    {
       ((char *)file_name)[p] = ' ';
+    }
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -531,7 +537,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (ofs % PGSIZE == 0);
 
   file_seek (file, ofs);
-  struct hash* page_table = &thread_current()->page_table;
   while (read_bytes > 0 || zero_bytes > 0)
     {
       /* Calculate how to fill this page.
@@ -540,17 +545,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-#ifdef VM
-      if (page_read_bytes == 0)  {
-        struct page *page = page_create_not_stack(page_table, upage, writable, NULL, 0, 0);
-        ASSERT(page);
-      }
-      else {
-        struct page *page = page_create_not_stack(page_table, upage, writable, file, ofs, page_read_bytes);
-        ofs += page_read_bytes;
-        ASSERT(page);
-      }
-#else
+      /* Get a page of memory. */
       uint8_t *kpage = palloc_get_page (PAL_USER);//TODO: replace it with page manager.
       if (kpage == NULL) {
         printf("User pool empty\n");
@@ -571,7 +566,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
           palloc_free_page (kpage);
           return false;
         }
-#endif
 
       /* Advance. */
       read_bytes -= page_read_bytes;
@@ -590,7 +584,7 @@ setup_stack (void **esp, const char *argument_string)
   bool success = false;
 
   struct thread* cur = thread_current();  
-  struct page *page = page_create_stack(&cur->page_table, ((uint8_t *)PHYS_BASE) - PGSIZE);
+  struct page *page = page_create(&cur->page_table, ((uint8_t *)PHYS_BASE) - PGSIZE);
   page->rw=true;
   kpage=page->frame->kpage;
   if (kpage != NULL)
