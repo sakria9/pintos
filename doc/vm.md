@@ -166,19 +166,11 @@ So P and Q won't have a race.
 > cannot interfere by e.g. attempting to evict the frame while it is
 > still being read in?
 
-We use a global lock `frame_global_lock` to ensure synchronization.
-
-Before a thread operates on the frame table, it must acquire the lock. After the operation, it must release the lock. 
-
-So Q will wait until P finishes reading file.
-
 > B8: Explain how you handle access to paged-out pages that occur
 > during system calls.  Do you use page faults to bring in pages (as
 > in user programs), or do you have a mechanism for "locking" frames
 > into physical memory, or do you use some other design?  How do you
 > gracefully handle attempted accesses to invalid virtual addresses?
-
-# TODO:
 
 ### RATIONALE
 
