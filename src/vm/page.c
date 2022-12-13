@@ -40,23 +40,9 @@ static bool page_less(const struct hash_elem *a,const struct hash_elem *b, void 
 void page_table_init(struct hash* page_table){
     hash_init(page_table, page_hash, page_less, NULL);
 }
-//extern struct hash frame_table;
+
 void page_table_destroy(struct hash* page_table)
 {
-    struct hash_iterator it;
-    hash_first(&it, page_table);
-    struct page* page=NULL;
-    while(hash_next(&it)) {
-        page = hash_entry(hash_cur(&it), struct page, page_table_elem); 
-        if (page->swap_index!=BITMAP_ERROR) {
-            swap_free(page->swap_index);
-        } else {
-            if (page->frame!=NULL) {
-                frame_free(page->frame);
-            }
-        }
-
-    }
     hash_destroy(page_table, NULL);
 }
 
@@ -131,10 +117,9 @@ void page_free(struct hash* page_table, struct page* page)
 extern struct lock frame_global_lock;
 bool page_fault_handler(struct hash *page_table, void *addr, void* esp, bool rw)
 {
-    //printf("page fault: %p\n",pg_round_down(addr));
+    printf("page fault: %p\n",pg_round_down(addr));
     if (addr==0 || !is_user_vaddr(addr)) {
-        //puts("Invalid address!") ;
-        //ASSERT(false);
+        // puts("Invalid address!") ;
         return false;
     }
     lock_acquire(&frame_global_lock);
@@ -145,8 +130,7 @@ bool page_fault_handler(struct hash *page_table, void *addr, void* esp, bool rw)
         //printf("%p %p\n",addr,esp);
         if (!addr_is_stack(addr, esp)) {
             // we continue only if it is a stack growth
-            //puts("Try to growth a non-stack memory"); 
-            //ASSERT(false);
+            // puts("Try to growth a non-stack memory"); 
             // printf("lock_release: %p\n",addr);
             lock_release(&frame_global_lock);
             return false;
@@ -156,15 +140,13 @@ bool page_fault_handler(struct hash *page_table, void *addr, void* esp, bool rw)
         page->rw=true;
     } else {
         if (rw && !page->rw) {// write to a read-only page
-            //puts("Try to write to a read-only page");
-            //ASSERT(false);
+            // puts("Try to write to a read-only page");
             //printf("lock_release: %p\n",addr);
             lock_release(&frame_global_lock);
             return false; 
         }
         if (!addr_is_stack(addr, esp) && page->is_stack) {// stack overflow
-            //puts("Stack overflow!");
-            //ASSERT(false);
+            // puts("Stack overflow!");
             // printf("lock_release: %p\n",addr);
             lock_release(&frame_global_lock);
             return false; 
@@ -197,7 +179,7 @@ bool page_fault_handler(struct hash *page_table, void *addr, void* esp, bool rw)
         lock_release(&frame_global_lock);
         return false;
     }
-    //printf("lock_release: %p\n",addr);
+    printf("lock_release: %p\n",addr);
     lock_release(&frame_global_lock);
     return true;
 }
