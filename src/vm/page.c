@@ -1,10 +1,8 @@
 #include "page.h"
-#include "bitmap.h"
 #include "frame.h"
 #include "debug.h"
 #include "hash.h"
 #include "threads/palloc.h"
-#include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "stdlib.h"
 #include "stdio.h"
@@ -12,7 +10,6 @@
 #include "threads/malloc.h"
 #include "userprog/pagedir.h"
 #include "threads/thread.h"
-#include "vm/swap.h"
 
 #define STACK_LIMIT 8388608 // 8MB
 
@@ -64,7 +61,6 @@ struct page* page_create(struct hash *page_table, void *uaddr)
     }
     memset(page->frame->kpage, 0, PGSIZE); // zero the page
     page->is_stack=true;
-    page->swap_index=BITMAP_ERROR;
     return page;
 }
 
@@ -85,55 +81,28 @@ void page_free(struct hash* page_table, struct page* page)
     hash_delete(page_table, &page->page_table_elem);
     free(page);
 }
-extern struct lock frame_global_lock;
 bool page_fault_handler(struct hash *page_table, void *addr, void* esp, bool rw)
 {
-    //printf("page fault: %p\n",pg_round_down(addr));
     if (!is_user_vaddr(addr)) return false;
-    lock_acquire(&frame_global_lock);
     //void *upage = pg_round_down(addr);
     struct page* page = page_find(page_table,addr);
     if (page==NULL) {
         // create a new page
-        //printf("%p %p\n",addr,esp);
         if (!addr_is_stack(addr, esp)) {
             // we continue only if it is a stack growth
             //puts("Try to growth a non-stack memory"); 
-            lock_release(&frame_global_lock);
+            //printf("%llu %llu\n",(unsigned long long)addr,(unsigned long long)esp);
             return false;
-        } 
-        //puts("page fault: grow stack");
+        }
         page = page_create(page_table, addr); 
-        page->rw=true;
-    } else {
-        if (rw && !page->rw) {// write to a read-only page
-            lock_release(&frame_global_lock);
-            return false; 
-        }
-        if (!addr_is_stack(addr, esp) && page->is_stack) {// stack overflow
-            lock_release(&frame_global_lock);
-            return false; 
-        }
-        if (page->swap_index!=BITMAP_ERROR) {
-            //puts("page fault: swap");
-            swap_in(page);
-        } else {
-            puts("page fault: file");
-            ASSERT(false);
-            // TODO: read from file
-            lock_release(&frame_global_lock);
-            return false;
-        }
+        page->rw=rw;
     }
     struct thread *t = thread_current();
-    if (!pagedir_set_page(t->pagedir, page->uaddr, page->frame->kpage, page->rw)) {
+    if (!pagedir_set_page(t->pagedir, page->uaddr, page->frame->kpage, rw)) {
         puts("Failed to add page into pagedir!");
-        ASSERT(false);
         frame_free(page->frame);
         page_free(page_table,page);
-        lock_release(&frame_global_lock);
         return false;
     }
-    lock_release(&frame_global_lock);
     return true;
 }

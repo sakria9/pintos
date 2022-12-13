@@ -11,8 +11,6 @@ struct page
 
     struct hash_elem page_table_elem; // for page_table
 
-    size_t swap_index; // Where is this page in swap disk. When this page is not in swap, swap_index=BITMAP_ERROR
-
 };
 
 void page_table_init(struct hash*);
