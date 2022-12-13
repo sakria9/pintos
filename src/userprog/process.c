@@ -604,7 +604,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (void **esp, const char *argument_string)
 {
-  lock_acquire(&frame_global_lock);
   uint8_t *kpage;
   bool success = false;
 
@@ -627,7 +626,6 @@ setup_stack (void **esp, const char *argument_string)
     {
       puts ("Page allocating failed");
     }
-  lock_release(&frame_global_lock);
   return success;
 }
 

@@ -72,7 +72,6 @@ page_table_destroy (struct hash *page_table)
 struct page *
 page_create_stack (struct hash *page_table, void *uaddr)
 {
-  ASSERT(lock_held_by_current_thread(&frame_global_lock));
   struct page *page = malloc (sizeof (struct page));
   if (page == NULL)
     {
@@ -102,8 +101,6 @@ struct page *
 page_create_not_stack (struct hash *page_table, void *uaddr, bool writeable,
                        struct file *file, off_t offset, size_t size)
 {
-  ASSERT(lock_held_by_current_thread(&frame_global_lock));
-
   struct page *page = malloc (sizeof (struct page));
   if (page == NULL)
     {
@@ -135,7 +132,6 @@ page_create_not_stack (struct hash *page_table, void *uaddr, bool writeable,
 struct page *
 page_find (struct hash *page_table, void *uaddr)
 {
-  ASSERT(lock_held_by_current_thread(&frame_global_lock));
   void *upage = pg_round_down (uaddr);
   struct page page;
   page.uaddr = upage;
@@ -148,7 +144,6 @@ page_find (struct hash *page_table, void *uaddr)
 void
 page_table_free_page (struct hash *page_table, struct page *page)
 {
-  ASSERT(lock_held_by_current_thread(&frame_global_lock));
   if (page->file == NULL)
     {
       // ordinary page
