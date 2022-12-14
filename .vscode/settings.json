@@ -1,6 +1,6 @@
 {
     "clangd.arguments": [
-        "--compile-commands-dir=src/userprog/build",
+        "--compile-commands-dir=src/filesys/build",
         "--completion-style=detailed",
         "--function-arg-placeholders"
     ],
