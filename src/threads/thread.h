@@ -106,9 +106,20 @@ struct thread
     struct file* exec_file;
 #endif
 
+    /* For sleeping thread. 
+      Tick to wake up. 
+      If awake_tick < 0, the thread is not sleeping */
+    int awake_tick;
+    struct list_elem sleep_elem;        /* List element for sleep list. */
+
+
+
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
+
+void thread_sleep(int64_t);
+
 
 /* A structure linking between parent process and child process
    It has its own life-cycle, to ensure that it will be destoryed after parent and children process are both dead.

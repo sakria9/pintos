@@ -37,6 +37,12 @@ static struct thread *initial_thread;
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
 
+/* List for all sleeping threads. 
+   Sort by awake_time in ascending order.
+*/
+static struct list sleep_list;
+
+
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
   {
@@ -92,6 +98,8 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init (&sleep_list);
+
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -122,7 +130,21 @@ thread_start (void)
 void
 thread_tick (void) 
 {
+  int tick = timer_ticks ();
+
   struct thread *t = thread_current ();
+
+  // Wake up sleeping threads which are ready to run
+  for (struct list_elem *e = list_begin (&sleep_list);
+       e != list_end (&sleep_list); e = list_next (e))
+    {
+      struct thread *t = list_entry (e, struct thread, sleep_elem);
+      if (t->awake_tick > tick)
+        break;
+      list_remove (e);
+      thread_unblock (t);
+    }
+
 
   /* Update statistics. */
   if (t == idle_thread)
@@ -182,6 +204,8 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
+
+  t->awake_tick = -1; // -1 means not sleeping
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -589,3 +613,27 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+/* Called by time_sleep()
+   Block a thread and insert it into sleep_list.
+  */
+void
+thread_sleep (int64_t awake_tick)
+{
+  enum intr_level old_level = intr_disable ();
+  struct thread *t = thread_current ();
+  t->awake_tick = awake_tick;
+
+  struct list_elem *e;
+  struct thread *x;
+  for (e = list_rbegin (&sleep_list); e != list_rend (&sleep_list);
+       e = list_prev (e))
+    {
+      x = list_entry (e, struct thread, sleep_elem);
+      if (x->awake_tick < t->awake_tick)
+        break;
+    }
+  list_insert (list_next (e), &t->sleep_elem);
+  thread_block ();
+  intr_set_level (old_level);
+}

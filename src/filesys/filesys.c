@@ -2,6 +2,8 @@
 #include <debug.h>
 #include <stdio.h>
 #include <string.h>
+#include "devices/timer.h"
+#include "filesys/cache.h"
 #include "filesys/file.h"
 #include "filesys/free-map.h"
 #include "filesys/inode.h"
@@ -9,6 +11,8 @@
 
 /* Partition that contains the file system. */
 struct block *fs_device;
+
+bool filesystem_shutdown;  // Whether filesystem is closed.
 
 static void do_format (void);
 
@@ -30,6 +34,7 @@ filesys_init (bool format)
     do_format ();
 
   free_map_open ();
+  filesystem_shutdown=false;
 }
 
 /* Shuts down the file system module, writing any unwritten data
@@ -38,6 +43,9 @@ void
 filesys_done (void) 
 {
   FILESYS_LOCK ();
+  cache_write_back();
+  filesystem_shutdown=true;
+  timer_sleep(500);
   free_map_close ();
   FILESYS_UNLOCK ();
 }
