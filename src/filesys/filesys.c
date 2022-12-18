@@ -27,6 +27,8 @@ filesys_init (bool format)
   if (fs_device == NULL)
     PANIC ("No file system device found, can't initialize file system.");
 
+  cache_init();
+
   inode_init ();
   free_map_init ();
 
@@ -45,7 +47,7 @@ filesys_done (void)
   FILESYS_LOCK ();
   cache_write_back();
   filesystem_shutdown=true;
-  timer_sleep(500);
+  sema_down(&write_behind_stopped); // Wait for write-behind thread to stop.
   free_map_close ();
   FILESYS_UNLOCK ();
 }
