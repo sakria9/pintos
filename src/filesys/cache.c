@@ -90,10 +90,14 @@ void cache_write(block_sector_t id, const void* data,int offset,int size)
     lock_acquire(&cache_global_lock);
     struct cache * c=cache_find(id);
     if (c==NULL) {
-        c= cache_new(id);
+        c = cache_new(id);
+        lock_acquire(&c->lock);
+        lock_release(&cache_global_lock); // it is safe to release the global lock when we have locked the cache's lock.
+        block_read(fs_device,id, c->data);
+    } else {
+        lock_acquire(&c->lock);
+        lock_release(&cache_global_lock); // it is safe to release the global lock when we have locked the cache's lock.
     }
-    lock_acquire(&c->lock);
-    lock_release(&cache_global_lock); // it is safe to release the global lock when we have locked the cache's lock.
     c->dirty=true;
     memcpy(c->data+offset,data,size);
     lock_release(&c->lock);
