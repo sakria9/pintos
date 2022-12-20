@@ -4,6 +4,7 @@
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
+#include "filesys/directory.h"
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -494,6 +495,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->exit_status = 0;
   list_init(&t->child_list);
 #endif
+
+  t->cwd = NULL;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

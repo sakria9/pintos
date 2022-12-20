@@ -1,8 +1,11 @@
 #include "userprog/syscall.h"
 #include "devices/input.h"
 #include "devices/shutdown.h"
+#include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "filesys/inode.h"
+#include "stddef.h"
 #include "threads/interrupt.h"
 #include "threads/malloc.h"
 #include "threads/thread.h"
@@ -112,14 +115,15 @@ wait (pid_t pid)
 {
   return process_wait (pid);
 }
-static bool
+static int
 create (const char *file, unsigned initial_size)
 {
   if (!check_string (file))
     exit (-1);
+  // printf ("create syscall: %s\n", file);
   return filesys_create (file, initial_size);
 }
-static bool
+static int
 remove (const char *file)
 {
   if (!check_string (file))
@@ -131,12 +135,25 @@ open (const char *file)
 {
   if (!check_string (file))
     exit (-1);
-  struct file *f = filesys_open (file);
-  if (f == NULL)
+  // printf ("open syscall: %s\n", file);
+  struct file *f;
+  struct dir *d;
+
+  if (!filesys_open_file_or_directory (file, &f, &d))
     return -1;
+
+  // printf ("f: %p, d: %p\n", f, d);
+  ASSERT (f != NULL || d != NULL);
+  ASSERT (f == NULL || d == NULL);
+
   struct thread *t = thread_current ();
   struct file_node *file_node = malloc (sizeof (struct file_node));
   file_node->file = f;
+  if (d)
+    file_node->is_dir = true, file_node->dir = d;
+  else
+    file_node->is_dir = false, file_node->file = f;
+  // printf("isdir: %d\n", (int)file_node->is_dir);
   file_node->fd = t->next_fd++;
   list_push_back (&t->file_list, &file_node->elem);
   return file_node->fd;
@@ -171,6 +188,8 @@ read (int fd, void *buffer, unsigned size)
           = get_file_node_by_fd (&thread_current ()->file_list, fd);
       if (!file_node)
         return -1;
+      if (file_node->is_dir)
+        exit (-1);
       return file_read (file_node->file, buffer, size);
     }
 }
@@ -191,7 +210,8 @@ write (int fd, const void *buffer, unsigned size)
           = get_file_node_by_fd (&thread_current ()->file_list, fd);
       if (!file_node)
         exit (-1);
-      // TODO: may be a directory?
+      if (file_node->is_dir)
+        return -1;
       return file_write (file_node->file, buffer, size);
     }
 }
@@ -226,6 +246,59 @@ close (int fd)
   file_close (file_node->file);
   list_remove (&file_node->elem);
   free (file_node);
+}
+
+static int
+isdir (int fd)
+{
+  struct list *file_list = &thread_current ()->file_list;
+  struct file_node *file_node = get_file_node_by_fd (file_list, fd);
+  if (!file_node)
+    exit (-1);
+  return file_node->is_dir;
+}
+
+static int
+inumber (int fd)
+{
+  struct list *file_list = &thread_current ()->file_list;
+  struct file_node *file_node = get_file_node_by_fd (file_list, fd);
+  if (!file_node)
+    exit (-1);
+  if (file_node->is_dir)
+    return inode_get_inumber (dir_get_inode (file_node->dir));
+  else
+    return inode_get_inumber (file_get_inode (file_node->file));
+}
+
+static int
+readdir (int fd, char *name)
+{
+  struct list *file_list = &thread_current ()->file_list;
+  struct file_node *file_node = get_file_node_by_fd (file_list, fd);
+  if (!file_node)
+    exit (-1);
+  if (!file_node->is_dir)
+    exit (-1);
+  check_buffer_put ((uint8_t *)name, NAME_MAX + 1);
+  return dir_readdir (file_node->dir, name);
+}
+
+static int
+mkdir (const char *dir)
+{
+  if (!check_string (dir))
+    exit (-1);
+  // printf ("mkdir syscall: %s\n", dir);
+  return filesys_mkdir (dir);
+}
+
+static int
+chdir (const char *dir)
+{
+  if (!check_string (dir))
+    exit (-1);
+  return filesys_chdir (dir);
 }
 
 static void
@@ -316,11 +389,21 @@ syscall_init (void)
 
   syscall_arg_number[SYS_MMAP] = 2;
   syscall_arg_number[SYS_MUNMAP] = 1;
+
   syscall_arg_number[SYS_CHDIR] = 1;
+  syscall_func[SYS_CHDIR] = (void *)chdir;
+
   syscall_arg_number[SYS_MKDIR] = 1;
+  syscall_func[SYS_MKDIR] = (void *)mkdir;
+
   syscall_arg_number[SYS_READDIR] = 2;
+  syscall_func[SYS_READDIR] = (void *)readdir;
+
   syscall_arg_number[SYS_ISDIR] = 1;
+  syscall_func[SYS_ISDIR] = (void *)isdir;
+
   syscall_arg_number[SYS_INUMBER] = 1;
+  syscall_func[SYS_INUMBER] = (void *)inumber;
 }
 
 static struct file_node *

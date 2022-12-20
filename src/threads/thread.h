@@ -112,7 +112,7 @@ struct thread
     int awake_tick;
     struct list_elem sleep_elem;        /* List element for sleep list. */
 
-
+    struct dir *cwd;                    /* Current Working Directory */
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
@@ -156,11 +156,16 @@ static void process_unlink(struct pa_ch_link *link)
 
 /* Element of file_list in thread */
 struct file_node
+{
+  int fd; /* File descriptor. */
+  bool is_dir;
+  union
   {
-    int fd;                             /* File descriptor. */
-    struct file *file;                  /* File. */
-    struct list_elem elem;              /* List element. */
+    struct file *file; /* File. */
+    struct dir *dir;
   };
+  struct list_elem elem; /* List element. */
+};
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.

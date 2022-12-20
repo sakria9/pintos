@@ -190,7 +190,10 @@ process_exit (void)
     {
       struct file_node *f = list_entry (e, struct file_node, elem);
       e = list_next (e);
-      file_close (f->file);
+      if (f->is_dir)
+        dir_close(f->dir);
+      else
+        file_close (f->file);
       free (f);
     }
 

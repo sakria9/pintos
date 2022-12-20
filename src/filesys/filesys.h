@@ -2,6 +2,7 @@
 #define FILESYS_FILESYS_H
 
 #include <stdbool.h>
+#include "filesys/directory.h"
 #include "filesys/off_t.h"
 
 /* Sectors of system file inodes. */
@@ -15,7 +16,11 @@ void filesys_init (bool format);
 void filesys_done (void);
 bool filesys_create (const char *name, off_t initial_size);
 struct file *filesys_open (const char *name);
+bool filesys_open_file_or_directory (const char *name, struct file **, struct dir **);
 bool filesys_remove (const char *name);
+bool filesys_mkdir (const char *name);
+bool filesys_chdir (const char *name);
+
 
 extern bool filesystem_shutdown;  // Whether filesystem is closed.
 

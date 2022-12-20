@@ -18,8 +18,9 @@ struct inode_disk
   {
     block_sector_t start;               /* First data sector. */
     off_t length;                       /* File size in bytes. */
+    unsigned is_dir;                    /* 1 if directory, 0 if file. */
     unsigned magic;                     /* Magic number. */
-    uint32_t unused[125];               /* Not used. */
+    uint32_t unused[124];               /* Not used. */
   };
 
 /* Returns the number of sectors to allocate for an inode SIZE
@@ -308,4 +309,17 @@ off_t
 inode_length (const struct inode *inode)
 {
   return inode->data.length;
+}
+
+bool inode_is_dir(const struct inode * inode) {
+  return inode->data.is_dir;
+}
+
+void inode_set_dir(struct inode * inode, bool is_dir) {
+  inode->data.is_dir = is_dir;
+  block_write (fs_device, inode->sector, &inode->data);
+}
+
+int inode_open_cnt(const struct inode * inode) {
+  return inode->open_cnt;
 }
