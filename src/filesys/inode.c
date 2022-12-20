@@ -317,7 +317,8 @@ bool inode_is_dir(const struct inode * inode) {
 
 void inode_set_dir(struct inode * inode, bool is_dir) {
   inode->data.is_dir = is_dir;
-  block_write (fs_device, inode->sector, &inode->data);
+  // block_write (fs_device, inode->sector, &inode->data);
+  cache_write(inode->sector, &inode->data, 0, BLOCK_SECTOR_SIZE);
 }
 
 int inode_open_cnt(const struct inode * inode) {
