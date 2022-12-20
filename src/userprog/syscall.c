@@ -243,7 +243,10 @@ close (int fd)
   struct file_node *file_node = get_file_node_by_fd (file_list, fd);
   if (!file_node)
     exit (-1);
-  file_close (file_node->file);
+  if (file_node->is_dir)
+    dir_close (file_node->dir);
+  else
+    file_close (file_node->file);
   list_remove (&file_node->elem);
   free (file_node);
 }
