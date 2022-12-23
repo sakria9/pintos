@@ -195,13 +195,16 @@ filesys_chdir (const char *name)
 {
   struct file *f;
   struct dir *d;
-  if (!filesys_open_file_or_directory (name, &f, &d))
-    return false;
-  if (d == NULL)
-    return false;
+  FILESYS_LOCK ();
+  if (!filesys_open_file_or_directory (name, &f, &d) || d == NULL)
+    {
+      FILESYS_UNLOCK ();
+      return false;
+    }
   if (thread_current ()->cwd != NULL)
     dir_close (thread_current ()->cwd);
   thread_current ()->cwd = d;
+  FILESYS_UNLOCK ();
   return true;
 }
 
