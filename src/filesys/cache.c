@@ -7,10 +7,18 @@
 #include "string.h"
 
 void write_behind(void);
+void read_ahead_proc(void);
 
 static struct cache cache[CACHE_SIZE];
 struct lock cache_global_lock;
 struct semaphore write_behind_stopped; // Used to wait for write-behind thread to stop.
+
+static struct list read_ahead_list; // Waiting list for read-ahead.
+struct read_ahead_entry {
+    struct list_elem elem;
+    block_sector_t sector_id; // the sector to read-ahead.
+};
+struct semaphore read_ahead_sema; // Counter of read-ahead blocks.
 
 void write_behind(void)
 {
@@ -26,6 +34,7 @@ void cache_init(void)
 {
     lock_init(&cache_global_lock);
     lock_acquire(&cache_global_lock);
+    sema_init(&read_ahead_sema, 0);
     for(int i=0; i<CACHE_SIZE; i++) {
         cache[i].sector_id=CACHE_UNUSED;
         cache[i].dirty=false;
@@ -33,6 +42,7 @@ void cache_init(void)
         lock_init(&cache[i].lock);
     }
     thread_create ("write-behind", PRI_DEFAULT, (thread_func *) write_behind, NULL);
+    thread_create ("read-ahead", PRI_DEFAULT, (thread_func *) read_ahead_proc, NULL);
     lock_release(&cache_global_lock);
 }
 
@@ -123,6 +133,28 @@ struct cache* cache_new(block_sector_t id)
     c->dirty=false;
     //lock_release(&cache_global_lock);
     return c;
+}
+
+//Preload a sector into cache.
+// It is done asynchronously.
+void read_ahead(block_sector_t id)
+{
+    struct read_ahead_entry *e=malloc(sizeof(struct read_ahead_entry));
+    e->sector_id=id;
+    list_push_back(&read_ahead_list, &e->elem);
+    sema_up(&read_ahead_sema);
+}
+
+// Read-ahead thread.
+void read_ahead_proc(void)
+{
+    while(!filesystem_shutdown) {
+        sema_down(&read_ahead_sema);
+        struct read_ahead_entry *e=list_entry(list_pop_front(&read_ahead_list), struct read_ahead_entry, elem);
+        struct cache* c=cache_new(e->sector_id);
+        block_read(fs_device,e->sector_id, c->data);
+        free(e);
+    }
 }
 
 // Evict a cache entry.

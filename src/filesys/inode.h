@@ -19,7 +19,7 @@ struct inode_disk
     unsigned magic;                     /* Magic number. */
     /* Our File System has 124 direct blocks, and 1 double-indirect block. 
        One double-indirect block can point to 128 indirect blocks, and each indirect block can point to 128 direct blocks.
-       So the maximum number of blocks is 124 + 128 * 128.
+       So the maximum number of blocks in one file is 124 + 128 * 128.
        Unlike ext2-like FS, we don't have a indirect block, because the number of direct blocks is very large.
     */
     block_sector_t direct[DIRECT_NUM]; // point to direct data blocks
