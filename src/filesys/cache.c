@@ -1,5 +1,6 @@
 #include "cache.h"
 #include "devices/block.h"
+#include "list.h"
 #include "threads/synch.h"
 #include "devices/timer.h"
 #include "filesys.h"
@@ -35,6 +36,7 @@ void cache_init(void)
     lock_init(&cache_global_lock);
     lock_acquire(&cache_global_lock);
     sema_init(&read_ahead_sema, 0);
+    list_init(&read_ahead_list);
     for(int i=0; i<CACHE_SIZE; i++) {
         cache[i].sector_id=CACHE_UNUSED;
         cache[i].dirty=false;
