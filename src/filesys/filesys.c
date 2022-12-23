@@ -199,6 +199,8 @@ filesys_chdir (const char *name)
     return false;
   if (d == NULL)
     return false;
+  if (thread_current ()->cwd != NULL)
+    dir_close (thread_current ()->cwd);
   thread_current ()->cwd = d;
   return true;
 }
@@ -290,7 +292,11 @@ try_open_directory (char *directory)
     cur = dir_reopen (thread_current ()->cwd);
   size_t i = 0;
   if (directory[0] == '/' || directory[0] == '\0')
-    cur = dir_open_root (), i = 1;
+    {
+      cur = dir_open_root ();
+      while (directory[i] == '/')
+        i++;
+    }
   else if (cur == NULL)
     cur = dir_open_root ();
   size_t len = strlen (directory);
