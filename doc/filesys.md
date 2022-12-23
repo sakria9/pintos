@@ -64,10 +64,44 @@ header-includes:
 > `struct` member, global or static variable, `typedef`, or
 > enumeration.  Identify the purpose of each in 25 words or less.
 
+```cpp
+struct inode_disk
+{
+    // ignore irrelevant members
+    unsigned is_dir; /* 1 if directory, 0 if file. */
+}
+
+/* Element of file_list in thread */
+struct file_node
+{
+  // ignore irrelevant members
+  bool is_dir;
+  union
+  {
+    struct file *file; /* File. */
+    struct dir *dir;
+  };
+};
+
+struct thread
+{
+    // ignore irrelevant members
+    struct dir *cwd; /* Current Working Directory */
+}
+```
+
 ### ALGORITHMS
 
 > B2: Describe your code for traversing a user-specified path.  How
 > do traversals of absolute and relative paths differ?
+
+We first split the basename and the parent path.
+If the parent path is empty, then the parent path is cwd.
+If the parent path begins with '/', then the parent path is absolute path.
+If the parent path does not begin with '/', then the parent path is relative path.
+If it is a relative path, the begining of the traversal is `thread_current()->cwd`.
+If it is a absolute path, the begining of the traversal is `dir_open_root()`.
+
 
 ### SYNCHRONIZATION
 
@@ -76,15 +110,28 @@ header-includes:
 > should succeed, as should only one of two simultaneous attempts to
 > create a file with the same name, and so on.
 
+The whole filesystem module is single thread by using a lock.
+Therefore, there is no "race" because every file operation in one by one.
+No two file operations would execute simultaneously.
+
 > B5: Does your implementation allow a directory to be removed if it
 > is open by a process or if it is in use as a process's current
 > working directory?  If so, what happens to that process's future
 > file system operations?  If not, how do you prevent it?
 
+No. We check whether the directory is open or not before removing it.
+There is a `open_cnt` in the inode structure.
+If it equals to 1, then we can remove it.
+
 ### RATIONALE
 
 > B6: Explain why you chose to represent the current directory of a
 > process the way you did.
+
+We add `struct dir *cwd;` in the `struct thread` structure.
+Because our implementation does not allow a directory to be removed if it is open by a process or if it is in use as a process's current working directory.
+So it is nice to have a pointer to the current directory of a process, which prevents the directory from being removed.
+And it is more efficient to use a pointer than to open the directory every time we need it.
 
 ## BUFFER CACHE
 

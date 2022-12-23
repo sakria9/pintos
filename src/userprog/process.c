@@ -185,6 +185,8 @@ process_exit (void)
   }
 
   /* Close all unclosed file and free the memory */
+  if (cur->cwd)
+    dir_close(cur->cwd);
   for (struct list_elem *e = list_begin (&cur->file_list);
        e != list_end (&cur->file_list);)
     {
