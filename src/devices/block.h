@@ -71,4 +71,5 @@ struct block *block_register (const char *name, enum block_type,
                               const char *extra_info, block_sector_t size,
                               const struct block_operations *, void *aux);
 
+void check_sector (struct block *block, block_sector_t sector);
 #endif /* devices/block.h */

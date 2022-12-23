@@ -101,7 +101,7 @@ block_get_by_name (const char *name)
 
 /* Verifies that SECTOR is a valid offset within BLOCK.
    Panics if not. */
-static void
+void
 check_sector (struct block *block, block_sector_t sector)
 {
   if (sector >= block->size)
