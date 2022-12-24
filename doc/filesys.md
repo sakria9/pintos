@@ -259,3 +259,9 @@ So that a thread will not get a cache block that is being evicted.
 
 > C7: Describe a file workload likely to benefit from buffer caching,
 > and workloads likely to benefit from read-ahead and write-behind.
+
+If the workload is likely to access the same block multiple times, then buffer caching will benefit.
+
+If the workload is likely to access the file sequentially, then read-ahead will benefit.
+
+If the workload is the one that keeps the file open for a long time and does not write to the file too frequently, then write-behind will benefit.
